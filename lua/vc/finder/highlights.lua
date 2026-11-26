@@ -25,6 +25,7 @@ local function colors()
 			red = { ctermfg = RED },
 			blue = { ctermfg = BLUE },
 			magenta = { ctermfg = MAGENTA },
+			code = { ctermfg = BLUE },
 			match = { ctermfg = YELLOW, bold = true },
 			select = { ctermbg = light and 7 or 0 },
 			add = { ctermfg = GREEN },
@@ -46,6 +47,8 @@ local function colors()
 		red = slot(RED),
 		blue = slot(BLUE),
 		magenta = slot(MAGENTA),
+		-- Inline code is the one color Claude Code does not take from the terminal's palette.
+		code = { fg = vim.o.background == "light" and "#5769f7" or "#b1b9f9" },
 		match = { fg = theme.hex(p[YELLOW]), bg = theme.mix(p.bg, p.fg, 0.2), bold = true },
 		select = { bg = theme.mix(p.bg, p.fg, 0.08) },
 		-- Diff tints: a faint band for the line, a stronger number and sign on the same band.
@@ -95,8 +98,8 @@ function M.apply()
 		PreviewBold = { bold = true },
 		PreviewItalic = { italic = true },
 		PreviewStrike = { strikethrough = true },
-		PreviewLink = { underline = true },
-		PreviewCode = c.blue,
+		PreviewLink = c.blue,
+		PreviewCode = c.code,
 		PreviewQuote = vim.tbl_extend("force", c.dim, { italic = true }),
 		PreviewQuoteBar = c.dim,
 		PreviewHeading = { bold = true },

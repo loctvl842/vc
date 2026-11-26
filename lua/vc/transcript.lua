@@ -103,11 +103,16 @@ function Out:message(marker, lines, marks, opts)
 	return first
 end
 
---- A slash command is stored as tags: show what the user typed ("/clear args"), and the command's own
---- output as a result. Anything else is not a command.
+--- Text the harness wrote into the conversation as tags: a slash command shows as typed ("/clear args"), its
+--- output as a result, a background task's update as its one-line summary. Anything else is left alone.
 ---@param text string
 ---@return VC.Block?
 local function command_block(text)
+	if text:find("^%s*<task%-notification>") then
+		local summary = text:match("<summary>(.-)</summary>") or "background task update"
+		summary = summary:gsub("&lt;", "<"):gsub("&gt;", ">"):gsub("&quot;", '"'):gsub("&apos;", "'"):gsub("&amp;", "&")
+		return { kind = "note", text = summary }
+	end
 	local name = text:match("<command%-name>(.-)</command%-name>")
 	if name then
 		local args = text:match("<command%-args>(.-)</command%-args>") or ""
@@ -121,7 +126,9 @@ local function command_block(text)
 end
 
 ---@class VC.Block
----@field kind "prompt"|"reply"|"thinking"|"call"|"result"
+---@field kind "prompt"|"reply"|"note"|"thinking"|"call"|"result"|"turn"
+---@field ms? integer
+---@field ts? string
 ---@field text? string
 ---@field id? string
 ---@field name? string
@@ -152,6 +159,13 @@ end
 --- Feed one transcript line (a JSON record).
 ---@param line string
 function Builder:feed(line)
+	if line:find('"subtype":"turn_duration"', 1, true) then
+		local o = decode(line)
+		if o and o.type == "system" and not o.isSidechain and tonumber(o.durationMs) then
+			self:push({ kind = "turn", ms = o.durationMs, ts = o.timestamp })
+		end
+		return
+	end
 	if not (line:find('"type":"user"', 1, true) or line:find('"type":"assistant"', 1, true)) then
 		return
 	end
@@ -262,6 +276,20 @@ local function render_diff(out, d)
 	end
 end
 
+--- "✻ Cogitated for 2m 0s · done Thursday 11:10 PM": how long a turn took and when it ended.
+---@param ms integer
+---@param ts? string ISO time of the record
+---@return string
+local function turn_line(ms, ts)
+	local sec = math.floor(ms / 1000 + 0.5)
+	local took = sec < 60 and (sec .. "s")
+		or sec < 3600 and (math.floor(sec / 60) .. "m " .. sec % 60 .. "s")
+		or (math.floor(sec / 3600) .. "h " .. math.floor(sec % 3600 / 60) .. "m")
+	local epoch = ts and require("vc.sessions.scan").parse_ts(ts)
+	local done = epoch and os.date(" · done %A %I:%M %p", epoch):gsub(" 0(%d:)", " %1") or ""
+	return "✻ Cogitated for " .. took .. done
+end
+
 ---@param b VC.Block
 function Builder:render_block(b)
 	local out = self.out
@@ -274,6 +302,11 @@ function Builder:render_block(b)
 			local first = out:message(REPLY, markdown.render(b.text))
 			out:mark(first, 0, #REPLY - 1, "Dot")
 		end
+	elseif b.kind == "note" then
+		local first = out:message(REPLY, toolline.split(b.text))
+		out:mark(first, 0, #REPLY - 1, "Dot")
+	elseif b.kind == "turn" then
+		out:whole(out:add(turn_line(b.ms, b.ts)), "Meta")
 	elseif b.kind == "thinking" then
 		local first = out:add("✻ Thinking…")
 		out:whole(first, "Thinking")

@@ -203,6 +203,36 @@ describe("transcript", function()
 		eq({ 7 }, errors)
 	end)
 
+	it("shows a background task's update as its one-line summary", function()
+		local note =
+			'<task-notification>\n<task-id>b1</task-id>\n<status>completed</status>\n<summary>Background command "a &amp;&amp; b" completed (exit code 0)</summary>\n</task-notification>'
+		local src = table.concat({ F.user(note, "t"), F.assistant({ { type = "text", text = "ok" } }, "t") }, "\n")
+		eq({ '● Background command "a && b" completed (exit code 0)', "", "● ok" }, (T.render(src)))
+	end)
+
+	it("closes a turn with how long it took and when it ended", function()
+		local function turn(ms, ts)
+			return vim.json.encode({ type = "system", subtype = "turn_duration", durationMs = ms, timestamp = ts })
+		end
+		local src = table.concat({
+			F.assistant({ { type = "text", text = "done" } }, "t"),
+			turn(120000, "2026-11-26T16:10:00.000Z"),
+			turn(7165, "2026-11-26T16:12:00.000Z"),
+			turn(3725000, "2026-11-26T16:13:00.000Z"),
+		}, "\n")
+		local lines, _, marks = T.render(src)
+		truthy(lines[3]:find("^✻ Cogitated for 2m 0s · done %a+ %d+:%d+ [AP]M$"), lines[3])
+		truthy(lines[5]:find("^✻ Cogitated for 7s · done"), lines[5])
+		truthy(lines[7]:find("^✻ Cogitated for 1h 2m · done"), lines[7])
+		local meta = {}
+		for _, m in ipairs(marks) do
+			if m.hl == "Meta" then
+				meta[#meta + 1] = m.l
+			end
+		end
+		eq({ 3, 5, 7 }, meta)
+	end)
+
 	it("folds thinking behind a one-line label", function()
 		local src = table.concat({
 			F.assistant({ { type = "thinking", thinking = "hmm\nok" }, { type = "text", text = "on it" } }, "t"),

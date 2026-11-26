@@ -13,7 +13,7 @@ local M = {}
 
 local ts = vim.treesitter
 
-local BULLET = "• "
+local BULLET = "- "
 local RULE = string.rep("─", 24)
 local CODE_INDENT = "  "
 
@@ -208,11 +208,29 @@ local function inline(text)
 	return table.concat(buf), spans
 end
 
+--- A web address written out in the text is a link too (as in Claude Code), unless it is already styled.
+---@param out string
+---@param spans { [1]: integer, [2]: integer, [3]: string }[]
+local function link_urls(out, spans)
+	for from, url in out:gmatch("()(https?://[^%s<>]+)") do
+		url = url:gsub("[%.,;:!?%)%]'\"]+$", "")
+		local start, stop = from - 1, from - 1 + #url
+		local taken = false
+		for _, sp in ipairs(spans) do
+			taken = taken or (sp[1] < stop and start < sp[2] and (sp[3] == "Code" or sp[3] == "Link"))
+		end
+		if not taken and #url > 8 then
+			spans[#spans + 1] = { start, stop, "Link" }
+		end
+	end
+end
+
 ---@param text string
 ---@return VC.Doc
 local function inline_doc(text)
 	text = text:gsub("[ \t]+\n", "\n"):gsub("\n[ \t]+", "\n"):gsub("^%s+", ""):gsub("%s+$", "")
 	local out, spans = inline(text)
+	link_urls(out, spans)
 	return split_spans(out, spans)
 end
 
@@ -344,15 +362,45 @@ local function code_block(text, lang)
 end
 
 --- Child blocks of `node`, in order, one blank line between them.
+local src_lines ---@type string[] the text being rendered, by line
+
+--- Last row of `node` that has text (a node's range also takes in the blank lines after it).
+---@param node TSNode
+---@return integer row 0-based
+local function last_row(node)
+	local _, _, er, ec = node:range()
+	local row = ec == 0 and er - 1 or er
+	while row > 0 and (src_lines[row + 1] or ""):match("^%s*$") do
+		row = row - 1
+	end
+	return row
+end
+
+--- Claude Code keeps the blank lines the text had and adds none, except after a heading and before one.
+---@param prev? TSNode
+---@param nxt TSNode
+---@return boolean
+local function blank_between(prev, nxt)
+	if not prev then
+		return false
+	end
+	local pk, nk = prev:type(), nxt:type()
+	if pk:find("heading") or nk == "section" or nk:find("heading") then
+		return true
+	end
+	return (nxt:start()) - last_row(prev) > 1
+end
+
 ---@param node TSNode
 ---@param src string
 ---@return VC.Doc
 local function blocks(node, src)
-	local d = doc({})
+	local d, prev = doc({}), nil
 	for child in node:iter_children() do
 		local kind = child:type()
 		if child:named() and kind ~= "block_quote_marker" and kind ~= "block_continuation" then
-			append(d, render(child, src), true)
+			append(d, render(child, src), blank_between(prev, child))
+			prev = child
 		end
 	end
 	return d
@@ -363,7 +411,7 @@ end
 ---@return VC.Doc
 local function list_item(item, src)
 	local marker = BULLET
-	local body = doc({})
+	local body, prev = doc({}), nil
 	for child in item:iter_children() do
 		local kind = child:type()
 		if kind:find("^list_marker") then
@@ -374,7 +422,8 @@ local function list_item(item, src)
 		elseif kind == "task_list_marker_unchecked" then
 			marker = marker .. "☐ "
 		elseif child:named() and kind ~= "block_continuation" then
-			append(body, render(child, src), not (kind == "list"))
+			append(body, render(child, src), blank_between(prev, child))
+			prev = child
 		end
 	end
 	if #body.lines == 0 then
@@ -461,6 +510,7 @@ function M.render(text)
 	end
 	local ok, d = pcall(function()
 		local src = toolline.clean(text):gsub("%s+$", "") .. "\n"
+		src_lines = vim.split(src, "\n", { plain = true })
 		local root = ts.get_string_parser(src, "markdown"):parse()[1]:root()
 		return render(root, src)
 	end)

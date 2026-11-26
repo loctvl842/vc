@@ -47,11 +47,11 @@ describe("markdown", function()
 
 	it("renders bullet, numbered and nested lists with hanging text", function()
 		local lines = md.render("- one\n  - nested\n- two\n\n1. first\n2. second")
-		eq({ "• one", "  • nested", "• two", "", "1. first", "2. second" }, lines)
+		eq({ "- one", "  - nested", "- two", "", "1. first", "2. second" }, lines)
 	end)
 
 	it("renders task lists", function()
-		eq({ "• ☐ todo", "• ☒ done" }, (md.render("- [ ] todo\n- [x] done")))
+		eq({ "- ☐ todo", "- ☒ done" }, (md.render("- [ ] todo\n- [x] done")))
 	end)
 
 	it("renders a block quote with a bar on each line", function()
@@ -104,6 +104,21 @@ describe("markdown", function()
 		local lines = md.render("| x |\n|---|\n| 日本 |")
 		eq("│ x    │", lines[2])
 		eq("│ 日本 │", lines[4])
+	end)
+
+	it("keeps the blank lines the text had and adds none", function()
+		eq({ "intro", "- a", "- b" }, (md.render("intro\n- a\n- b")))
+		eq({ "intro", "", "- a", "- b", "", "after" }, (md.render("intro\n\n- a\n- b\n\nafter")))
+	end)
+
+	it("puts air around a heading even when the text did not", function()
+		eq({ "before", "", "Title", "", "after" }, (md.render("before\n## Title\nafter")))
+	end)
+
+	it("links a web address written out in the text, but not inside code", function()
+		local lines, marks = md.render("see http://127.0.0.1:58901/. and `http://in.code/x` and (https://a.dev/b)")
+		eq({ "http://127.0.0.1:58901/", "https://a.dev/b" }, styled(lines, marks, "Link"))
+		eq({ "http://in.code/x" }, styled(lines, marks, "Code"))
 	end)
 
 	it("keeps soft line breaks as lines", function()
