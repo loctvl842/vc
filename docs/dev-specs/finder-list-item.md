@@ -178,17 +178,37 @@ Goal: the numbers and the look hold up on the real store. Not code-heavy.
 - Manual: open the finder (`nvim` in this repo) and run PM spec scenarios 1-8: pick by where it left off; long messages open on selection; find by something said ("Dana"-style query); recap search exact, never loose; a session with nothing of its own; narrow list; two same-named folders; folder gone. Compare against STATE 1-6 in the PM spec.
 
 # Success Criteria
-- [ ] Every session shows its full folder with the home folder as ~
-- [ ] Two folders with the same name can be told apart in the list
-- [ ] A session with a recap shows it in full; one without shows no recap line
-- [ ] Each session shows the last real message the user wrote, in full (up to 2000 characters)
-- [ ] A command-only message (/recap, /clear, /compact) is never shown as the last message; a command with arguments is
-- [ ] Long messages wrap to the list width, over as many lines as they need
-- [ ] The selected session shows all lines; the others show at most 3 and end with "…"
-- [ ] Searching a word from a recap or a last message finds the session and highlights it
-- [ ] Scattered letters do not match inside a recap or last message
-- [ ] A match beyond line 3 of an unselected session is still visible
-- [ ] Branch and PR show when known and are hidden otherwise
-- [ ] A session with no recap and no message of its own shows two rows
-- [ ] "(folder gone)", "New session" and the preview behave as before
-- [ ] `make test` and `make lint` pass; the full rescan time is not noticeably slower than before
+- [x] Every session shows its full folder with the home folder as ~
+- [x] Two folders with the same name can be told apart in the list
+- [x] A session with a recap shows it in full; one without shows no recap line
+- [x] Each session shows the last real message the user wrote, in full (up to 2000 characters)
+- [x] A command-only message (/recap, /clear, /compact) is never shown as the last message; a command with arguments is
+- [x] Long messages wrap to the list width, over as many lines as they need
+- [x] The selected session shows all lines; the others show at most 3 and end with "…"
+- [x] Searching a word from a recap or a last message finds the session and highlights it
+- [x] Scattered letters do not match inside a recap or last message
+- [x] A match beyond line 3 of an unselected session is still visible
+- [x] Branch and PR show when known and are hidden otherwise
+- [x] A session with no recap and no message of its own shows two rows
+- [x] "(folder gone)", "New session" and the preview behave as before
+- [x] `make test` and `make lint` pass; the full rescan time is not noticeably slower than before
+
+---
+
+## Completed
+
+2026-11-26 - all four phases, in a worktree (`feat/finder-list-item`), delivered as a pull request.
+
+- `4ddb81f` feat(sessions): scan the last message, branch and pull request
+- `55158ad` feat(finder): wrap the recap and last message in the list, fold them unless selected
+- `2136d43` feat(finder): search the last message and keep matches in view
+- `f91218d` fix(sessions): skip a built-in command stored as plain text as the last message (found on real data: `/compact` is stored as plain text, with no command tags)
+- `43d9f52` fix(finder): shorten a long branch before the folder row overflows a narrow list (found in a 80-column terminal: the branch chip overflowed the folder row)
+
+Deviations from the plan:
+- `ListRecap` is plain dim, not dim italic (the spec allowed dropping italic).
+- "New session" also gets the trailing blank row, so every item has the same rhythm.
+- A plain-text built-in command (`/compact`) is skipped as a last message by pattern, as well as the tagged commands.
+- At narrow widths the branch chip shrinks (and below about 4 columns is dropped) before the folder row can overflow; the PR chip stays.
+
+Verification: `make test` 92 passing, `make lint` clean. Cold scan of the 106 real sessions (187 MB): 627 ms on `origin/main`, 707 ms here (best of 3); warm path unchanged. Checked in a real terminal at 150x42 and 80x30: layout, folding and opening of the selected session, search (`'worktree`), match highlighting (bold yellow), narrow widths.
