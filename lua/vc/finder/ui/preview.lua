@@ -61,7 +61,7 @@ function M.create(geo)
 	View.wo(win, "foldlevel", 0)
 	View.wo(win, "foldenable", true)
 	View.wo(win, "foldcolumn", "0")
-	View.wo(win, "fillchars", "fold: ")
+	View.wo(win, "fillchars", "fold: ,eob: ")
 	return PreviewView(buf, win, ns)
 end
 

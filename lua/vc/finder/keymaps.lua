@@ -77,7 +77,7 @@ local move = {
 ---@type VC.Finder.KeyBinding[]
 local pick = {
 	{ "<CR>", "confirm" },
-	{ "<Esc>", "exit", modes = { "n" } },
+	{ "<Esc>", "exit" },
 	{ "<C-c>", "exit", modes = { "i", "n" } },
 }
 

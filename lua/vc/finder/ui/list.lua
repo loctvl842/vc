@@ -51,6 +51,7 @@ function M.create(geo, footer)
 	View.wo(win, "cursorline", false)
 	View.wo(win, "scrolloff", 0)
 	View.wo(win, "wrap", false)
+	View.wo(win, "fillchars", "eob: ")
 	View.wo(win, "winhl", "Normal:VCFinderNormal,FloatBorder:VCFinderBorder")
 	local view = ListView(buf, win, ns)
 	if footer then

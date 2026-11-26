@@ -42,6 +42,7 @@ function M.create(on_change, geo, title)
 		zindex = 103,
 	})
 	View.wo(win, "cursorline", false)
+	View.wo(win, "fillchars", "eob: ")
 	View.wo(win, "winhl", "Normal:VCFinderNormal,FloatBorder:VCFinderBorder,FloatTitle:VCFinderInputTitle")
 
 	local view = InputView(buf, win, ns)
@@ -100,7 +101,7 @@ function M.set_count(view, text)
 	end
 	if text and text ~= "" then
 		view._count_extmark = vim.api.nvim_buf_set_extmark(view.buf, view.ns, 0, 0, {
-			virt_text = { { text, "VCFinderListDim" } },
+			virt_text = { { text .. " ", "VCFinderListDim" } },
 			virt_text_pos = "right_align",
 		})
 	end
