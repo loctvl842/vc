@@ -4,7 +4,7 @@ local wrap = require("vc.finder.wrap")
 local M = {}
 
 M.title = "Claude Sessions"
-M.footer = "<CR> continue   <C-n>/<C-p> move   <C-l> preview   <Esc> exit"
+M.footer = "<CR> open  <C-n/p> move  <C-l> preview  <C-r> refresh  <Esc> exit"
 M.footer_empty = "<Esc> exit"
 
 local FOLD = 3 -- lines of a message shown while its session is not selected

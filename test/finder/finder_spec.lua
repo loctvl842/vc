@@ -196,6 +196,20 @@ describe("finder", function()
 		s:close()
 	end)
 
+	it("Ctrl-R asks for a refresh from every pane", function()
+		local refreshed = 0
+		local s = open({
+			on_refresh = function()
+				refreshed = refreshed + 1
+			end,
+		})
+		for _, role in ipairs({ "input", "list", "preview" }) do
+			press(s, role, "<C-r>")
+		end
+		eq(3, refreshed)
+		s:close()
+	end)
+
 	it("the first row is selected again after each query change", function()
 		local s = open()
 		press(s, "input", "<C-n>")

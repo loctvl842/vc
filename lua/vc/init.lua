@@ -30,8 +30,23 @@ function M.show_finder()
 		cancel_index = nil
 	end
 	reset_window()
-	local session = finder.open({
+	local session
+	--- Scan the sessions again; what is known shows at once and the rest follows. A scan in flight is replaced.
+	local function load()
+		if cancel_index then
+			cancel_index()
+		end
+		session:busy(true)
+		cancel_index = index.load(opts.index, function(rows, done)
+			session:set_rows(rows)
+			if done then
+				session:busy(false)
+			end
+		end)
+	end
+	session = finder.open({
 		on_confirm = M.open_item,
+		on_refresh = load,
 		on_exit = function()
 			if cancel_index then
 				cancel_index()
@@ -39,13 +54,7 @@ function M.show_finder()
 			vim.cmd("qa!")
 		end,
 	})
-	session:busy(true)
-	cancel_index = index.load(opts.index, function(rows, done)
-		session:set_rows(rows)
-		if done then
-			session:busy(false)
-		end
-	end)
+	load()
 end
 
 --- Enter on a finder item: hand the window to Claude Code.
