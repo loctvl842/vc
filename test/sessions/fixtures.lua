@@ -42,6 +42,26 @@ function M.title(t)
 	return j({ type = "ai-title", aiTitle = t, sessionId = "s" })
 end
 
+--- A slash command as Claude Code stores it: the user message is made of tags.
+function M.command(name, args, ts, cwd, extra)
+	local text = ("<command-message>%s</command-message>\n<command-name>/%s</command-name>\n<command-args>%s</command-args>"):format(
+		name,
+		name,
+		args or ""
+	)
+	return M.user(text, ts, cwd, extra)
+end
+
+function M.pr_link(number)
+	return j({
+		type = "pr-link",
+		sessionId = "s",
+		prNumber = number,
+		prUrl = "https://x/pull/" .. number,
+		prRepository = "o/r",
+	})
+end
+
 function M.system(subtype, content, extra)
 	return j(vim.tbl_extend("force", {
 		type = "system",

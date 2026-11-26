@@ -78,6 +78,69 @@ describe("scan", function()
 		end)
 	end)
 
+	describe("last message, branch and PR", function()
+		local function scan_lines(lines)
+			local path = tmpdir() .. "/s.jsonl"
+			write_file(path, lines)
+			return scan.scan_file(path, vim.uv.fs_stat(path))
+		end
+		local T = "2026-11-26T10:00:00.000Z"
+		local function user(text, extra)
+			return F.user(text, T, "/w", extra)
+		end
+
+		it("is the latest message the user wrote, in full, on one line", function()
+			local r = scan_lines({
+				F.title("Titled"),
+				user("first thing"),
+				F.assistant({ { type = "text", text = "ok" } }, T, "/w"),
+				user("then   this\nand that"),
+				F.tool_result(T, "/w"),
+			})
+			eq("then this and that", r.last_prompt)
+		end)
+
+		it("is nil when it would only repeat the title", function()
+			local r = scan_lines({ user("only message"), F.assistant({ { type = "text", text = "ok" } }, T, "/w") })
+			eq("only message", r.title)
+			eq(nil, r.last_prompt)
+		end)
+
+		it("skips bare commands, compaction summaries and interruptions", function()
+			local r = scan_lines({
+				F.title("Titled"),
+				user("the real one"),
+				F.command("clear", "", T, "/w"),
+				user("This session is being continued from a previous conversation.", { isCompactSummary = true }),
+				user("[Request interrupted by user]"),
+			})
+			eq("the real one", r.last_prompt)
+		end)
+
+		it("counts a command with arguments as the arguments", function()
+			local r =
+				scan_lines({ F.title("Titled"), user("hello"), F.command("pm-spec", "Improve the  preview", T, "/w") })
+			eq("Improve the preview", r.last_prompt)
+		end)
+
+		it("ends with an ellipsis when over 2000 characters", function()
+			local r = scan_lines({ F.title("Titled"), user(string.rep("a", 2500)) })
+			eq(2000, vim.fn.strchars(r.last_prompt))
+			eq("…", vim.fn.strcharpart(r.last_prompt, 1999, 1))
+		end)
+
+		it("takes the branch of the last message, and none when detached", function()
+			eq("feat/x", scan_lines({ user("a", { gitBranch = "main" }), user("b", { gitBranch = "feat/x" }) }).branch)
+			eq(nil, scan_lines({ user("a", { gitBranch = "HEAD" }) }).branch)
+			eq(nil, scan_lines({ user("a") }).branch)
+		end)
+
+		it("takes the latest pull request number", function()
+			eq(8, scan_lines({ user("a"), F.pr_link(3), F.pr_link(8) }).pr)
+			eq(nil, scan_lines({ user("a") }).pr)
+		end)
+	end)
+
 	it("parses timestamps as UTC epoch", function()
 		eq(0, scan.parse_ts("1970-01-01T00:00:00Z"))
 		eq(1767225600, scan.parse_ts("2026-01-01T00:00:00.000Z"))
