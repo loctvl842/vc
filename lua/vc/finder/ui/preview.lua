@@ -94,18 +94,19 @@ end
 ---@param view VC.Finder.PreviewView
 ---@param marks VC.Mark[]
 local function paint(view, marks)
-	local lines = vim.api.nvim_buf_get_lines(view.buf, 0, -1, false)
 	for _, m in ipairs(marks) do
 		local hl, row = "VCFinderPreview" .. m.hl, m.l - 1
 		if m.line then
-			-- A range to the end of the line, not `line_hl_group`: that one leaves the hanging indent of a
-			-- wrapped row unpainted, which cuts a hole in every band.
+			-- A range through the line break (to the start of the next row), not `line_hl_group`: that one
+			-- leaves the hanging indent of a wrapped row unpainted, which cuts a hole in every band, and a
+			-- range that stops at the last character leaves the band ragged. `strict = false` lets the last
+			-- line end at the end of the buffer.
 			vim.api.nvim_buf_set_extmark(
 				view.buf,
 				view.ns,
 				row,
 				0,
-				{ end_row = row, end_col = #lines[m.l], hl_group = hl, hl_eol = true }
+				{ end_row = row + 1, end_col = 0, hl_group = hl, hl_eol = true, strict = false }
 			)
 		else
 			vim.api.nvim_buf_set_extmark(view.buf, view.ns, row, m.c, { end_col = m.e, hl_group = hl })
