@@ -1,6 +1,5 @@
 local M = {}
 
-
 local FPS = 30
 local FRAME_MS = math.floor(1000 / FPS)
 
