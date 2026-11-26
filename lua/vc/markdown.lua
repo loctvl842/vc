@@ -242,6 +242,84 @@ local function inline_text(node, src)
 	return table.concat(parts)
 end
 
+--- A pipe table as aligned columns inside box lines. Cells keep their inline styling; the header is bold.
+---@param node TSNode
+---@param src string
+---@return VC.Doc
+local function table_doc(node, src)
+	local rows, align = {}, {}
+	for child in node:iter_children() do
+		local kind = child:type()
+		if kind == "pipe_table_header" or kind == "pipe_table_row" then
+			local cells = {}
+			for cell in child:iter_children() do
+				if cell:type() == "pipe_table_cell" then
+					local text = vim.trim(text_of(cell, src))
+					local out, spans = "", {}
+					if text ~= "" then
+						out, spans = inline(text)
+					end
+					cells[#cells + 1] = { text = out, spans = spans, width = vim.fn.strdisplaywidth(out) }
+				end
+			end
+			rows[#rows + 1] = { cells = cells, header = kind == "pipe_table_header" }
+		elseif kind == "pipe_table_delimiter_row" then
+			for cell in child:iter_children() do
+				if cell:type() == "pipe_table_delimiter_cell" then
+					local d = text_of(cell, src)
+					local left, right = d:find("^:") ~= nil, d:find(":$") ~= nil
+					align[#align + 1] = left and right and "center" or right and "right" or "left"
+				end
+			end
+		end
+	end
+	local widths = {}
+	for _, r in ipairs(rows) do
+		for i, c in ipairs(r.cells) do
+			widths[i] = math.max(widths[i] or 1, c.width)
+		end
+	end
+	local function border(l, m, r)
+		local parts = {}
+		for i, w in ipairs(widths) do
+			parts[i] = string.rep("─", w + 2)
+		end
+		return l .. table.concat(parts, m) .. r
+	end
+	local d = doc({})
+	local function add_border(l, m, r)
+		d.lines[#d.lines + 1] = border(l, m, r)
+		d.marks[#d.marks + 1] = { l = #d.lines, hl = "QuoteBar", line = true }
+	end
+	add_border("┌", "┬", "┐")
+	for n, r in ipairs(rows) do
+		local line = "│"
+		for i, w in ipairs(widths) do
+			local c = r.cells[i] or { text = "", spans = {}, width = 0 }
+			local gap = w - c.width
+			local a = align[i] or "left"
+			local left = a == "right" and gap or a == "center" and math.floor(gap / 2) or 0
+			line = line .. " " .. string.rep(" ", left)
+			local at = #line
+			for _, sp in ipairs(c.spans) do
+				d.marks[#d.marks + 1] = { l = #d.lines + 1, c = at + sp[1], e = at + sp[2], hl = sp[3] }
+			end
+			if r.header and c.text ~= "" then
+				d.marks[#d.marks + 1] = { l = #d.lines + 1, c = at, e = at + #c.text, hl = "Bold" }
+			end
+			line = line .. c.text .. string.rep(" ", gap - left) .. " │"
+		end
+		d.lines[#d.lines + 1] = line
+		if r.header then
+			add_border("├", "┼", "┤")
+		end
+		if n == #rows then
+			add_border("└", "┴", "┘")
+		end
+	end
+	return d
+end
+
 local render ---@type fun(node: TSNode, src: string): VC.Doc
 
 ---@param text string
@@ -359,6 +437,8 @@ function render(node, src)
 		return code_block(text or "", lang)
 	elseif kind == "indented_code_block" then
 		return code_block((text_of(node, src):gsub("^    ", ""):gsub("\n    ", "\n")), nil)
+	elseif kind == "pipe_table" then
+		return table_doc(node, src)
 	elseif kind == "thematic_break" then
 		return doc({ RULE }, { { l = 1, c = 0, e = #RULE, hl = "QuoteBar" } })
 	end

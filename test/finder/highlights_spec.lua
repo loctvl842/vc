@@ -29,6 +29,49 @@ describe("finder highlights", function()
 		end
 	end)
 
+	it("defines the conversation groups, with a palette fallback for each", function()
+		for _, name in ipairs({
+			"PreviewMeta",
+			"PreviewPrompt",
+			"PreviewBand",
+			"PreviewDot",
+			"PreviewToolName",
+			"PreviewToolArgs",
+			"PreviewResult",
+			"PreviewError",
+			"PreviewThinking",
+			"PreviewFold",
+			"PreviewBold",
+			"PreviewItalic",
+			"PreviewStrike",
+			"PreviewLink",
+			"PreviewCode",
+			"PreviewQuote",
+			"PreviewQuoteBar",
+			"PreviewHeading",
+			"PreviewHeading1",
+			"PreviewCodeLang",
+			"PreviewCodeKeyword",
+			"PreviewCodeString",
+			"PreviewCodeNumber",
+			"PreviewCodeComment",
+			"PreviewCodeFunction",
+			"PreviewCodeType",
+			"PreviewDiffAdd",
+			"PreviewDiffAddSign",
+			"PreviewDiffDelete",
+			"PreviewDiffDeleteSign",
+		}) do
+			truthy(next(hl(name)) ~= nil, name .. " is not defined")
+		end
+		eq(2, hl("PreviewCodeString").ctermfg)
+		eq(5, hl("PreviewCodeKeyword").ctermfg)
+		eq(2, hl("PreviewDiffAdd").ctermfg)
+		eq(1, hl("PreviewDiffDelete").ctermfg)
+		eq(true, hl("PreviewBold").bold)
+		eq(true, hl("PreviewLink").underline)
+	end)
+
 	it("tints the selected row for the dark background", function()
 		eq(0, hl("ListCursorLine").ctermbg)
 	end)
@@ -62,6 +105,12 @@ describe("finder highlights", function()
 		it("blends a tint for the selected row and the dim text", function()
 			eq(tonumber(theme.mix(palette.bg, palette.fg, 0.08):sub(2), 16), hl("ListCursorLine").bg)
 			eq(tonumber(theme.mix(palette.bg, palette.fg, 0.5):sub(2), 16), hl("ListDim").fg)
+		end)
+
+		it("blends the diff bands from the terminal's green and red", function()
+			eq(tonumber(theme.mix(palette.bg, palette[2], 0.15):sub(2), 16), hl("PreviewDiffAdd").bg)
+			eq(tonumber(theme.mix(palette.bg, palette[1], 0.15):sub(2), 16), hl("PreviewDiffDelete").bg)
+			eq(tonumber(theme.mix(palette.bg, palette[2], 0.6):sub(2), 16), hl("PreviewDiffAddSign").fg)
 		end)
 
 		it("leaves the background to the terminal", function()

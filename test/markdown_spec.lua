@@ -80,6 +80,32 @@ describe("markdown", function()
 		eq("b", lines[5])
 	end)
 
+	it("draws a table with aligned columns, a bold header and styled cells", function()
+		local lines, marks = md.render("| name | n |\n|:-----|--:|\n| **a** | 1 |\n| bb | 22 |")
+		eq({
+			"┌──────┬────┐",
+			"│ name │  n │",
+			"├──────┼────┤",
+			"│ a    │  1 │",
+			"│ bb   │ 22 │",
+			"└──────┴────┘",
+		}, lines)
+		eq({ "name", "n" }, styled(lines, marks, "Bold") and { "name", "n" })
+		local bold = {}
+		for _, m in ipairs(marks) do
+			if m.hl == "Bold" then
+				bold[#bold + 1] = lines[m.l]:sub(m.c + 1, m.e)
+			end
+		end
+		eq({ "name", "n", "a" }, bold)
+	end)
+
+	it("pads wide characters by display width", function()
+		local lines = md.render("| x |\n|---|\n| 日本 |")
+		eq("│ x    │", lines[2])
+		eq("│ 日本 │", lines[4])
+	end)
+
 	it("keeps soft line breaks as lines", function()
 		eq({ "one", "two", "three" }, (md.render("one\ntwo  \nthree")))
 	end)

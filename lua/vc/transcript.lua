@@ -20,8 +20,8 @@ local M = {}
 ---@field hl string group, without the "VCFinderPreview" prefix
 ---@field line? boolean the group paints the whole line
 
-local CHUNK = 400 -- transcript lines handled per event-loop turn when rendering async
-local RENDER_CHUNK = 200 -- blocks rendered per event-loop turn
+local CHUNK = 50 -- transcript lines handled per event-loop turn when rendering async
+local RENDER_CHUNK = 20 -- blocks rendered per event-loop turn
 local PARTIAL_LINES = 80 -- lines rendered before the first screen is published
 local RESOLVE_WINDOW = 64 -- a call this far back that never got a result is rendered without one
 
