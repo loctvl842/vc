@@ -1,4 +1,4 @@
-<!-- Generated: 2026-11-27 | Files scanned: 66 | Token estimate: ~880 -->
+<!-- Generated: 2026-11-27 | Files scanned: 75 | Token estimate: ~1000 -->
 
 # Modules
 
@@ -26,8 +26,16 @@
 - `setup(opts?)` replaces `vim.notify` (fast events are scheduled), `notify(message, level?, {title?, icon?, timeout?}) -> record`, `dismiss()`
 - Cards: up to 80 columns (`config.width()` = min(80, columns - 2)), text wrapped with `vc.finder.wrap`, 10 rows max, `zindex` 200, fade in, slide out after `timeout` (3 s)
 - Oldest cards slide out early when the stack would pass the bottom; a leaving card takes no room
+- Level dispatch in `notify`: INFO -> `vc.toast`, WARN and ERROR -> cards, DEBUG and TRACE filtered; `dismiss()` clears both
 - `animate.tween(ms, on_frame, on_done)`, `animate.run(win, from, to, ms, on_done, opts)`
 - Deps: `vc.finder.view`, `vc.finder.wrap`, `vc.theme`; groups `VCNotify{Normal,Border,ERROR,WARN,INFO,DEBUG,TRACE}`
+
+## toast
+**Path:** `lua/vc/toast/`
+- `toast(message, level?, opts?) -> record` (callable; a fast event is scheduled), `setup(opts?)`, `dismiss()`
+- One borderless line in the last screen row (`anchor = "SE"`, 1 column margin), width 10 to 60% of the terminal, text then level icon; line breaks become spaces, long text ends with an ellipsis
+- Identical visible toasts merge: `x2` .. `x99`, `x99+`; each merge restarts the 2.2 s timer; stack capped at the free rows, oldest leave early
+- Deps: `vc.animate`, `vc.finder.view`; groups `VCToast{Normal,Body,TitleERROR..,Count}` defined in `vc.notify.highlights`
 
 ## messages
 **Path:** `lua/vc/messages/`
