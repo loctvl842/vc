@@ -1,8 +1,13 @@
+---@class VC.Finder.Field
+---@field from integer first byte in `text`
+---@field to integer last byte in `text`
+---@field plain? boolean matches as a plain substring only (long prose), not fuzzily
+
 ---@class VC.Finder.Item
 ---@field idx integer
 ---@field score number
 ---@field text string what the query matches against
----@field fuzzy_len? integer only this many leading bytes of `text` match fuzzily; the rest (a recap) matches as a substring
+---@field fields? VC.Finder.Field[] spans of `text` the query is matched against one at a time
 ---@field positions? integer[] matched byte positions in `text`
 ---@field row? VC.Row the session this item stands for
 ---@field new? boolean the "New session" item

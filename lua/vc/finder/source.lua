@@ -53,8 +53,9 @@ end
 
 --- Items for a list of session rows (newest first), "New session" in front when `with_new`.
 --- The search text is the title, the location, the recap and the last message (the last two when the session
---- has them), in that order. The title and location match fuzzily; the recap and last message only as a
---- substring (see `fuzzy_len`), since scattered letters match nearly any query in a paragraph.
+--- has them), in that order. The query is matched against each of them on its own, never across them: a session
+--- matches when the query matches any one, and scores the sum. The title and location match fuzzily; the recap
+--- and last message only as a substring, since scattered letters match nearly any query in a paragraph.
 --- `recap_at` and `prompt_at` are where those two start.
 ---@param rows VC.Row[]
 ---@param with_new boolean
@@ -66,18 +67,22 @@ function M.items(rows, with_new)
 		items[1] = { idx = 1, score = 1, text = "", new = true }
 	end
 	for _, row in ipairs(rows) do
-		local text = row.title .. "  " .. M.location(row)
+		local location = M.location(row)
+		local text = row.title .. "  " .. location
 		local item = { idx = #items + 1, score = 1, row = row }
-		if row.recap or row.last_prompt then
-			item.fuzzy_len = #text
-		end
+		item.fields = {
+			{ from = 1, to = #row.title },
+			{ from = #row.title + 3, to = #text },
+		}
 		if row.recap then
 			item.recap_at = #text + 3
 			text = text .. "  " .. row.recap
+			item.fields[#item.fields + 1] = { from = item.recap_at, to = #text, plain = true }
 		end
 		if row.last_prompt then
 			item.prompt_at = #text + 3
 			text = text .. "  " .. row.last_prompt
+			item.fields[#item.fields + 1] = { from = item.prompt_at, to = #text, plain = true }
 		end
 		item.text = text
 		items[#items + 1] = item

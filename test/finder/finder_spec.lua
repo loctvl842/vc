@@ -281,9 +281,11 @@ describe("finder", function()
 		type_query(s, "'dana")
 		eq({ "Draft Q4 roadmap outline" }, titles(s))
 		local lines, ranges = source.format(s.query.matched[1], 80)
-		eq(1, #ranges)
+		-- "Dana" is in the recap and in the last message: each field is matched on its own
+		eq(2, #ranges)
 		eq(3, ranges[1].row)
 		eq("Dana", texts(lines)[3]:sub(ranges[1].s + 1, ranges[1].e))
+		eq("Dana", texts(lines)[ranges[2].row]:sub(ranges[2].s + 1, ranges[2].e))
 		type_query(s, "rmpldanta") -- scattered letters do not match recap prose
 		eq({}, titles(s))
 		s:close()
@@ -323,9 +325,9 @@ describe("finder", function()
 		s:close()
 	end)
 
-	it("highlights each typed word where it appears, in the title and in the message", function()
+	it("highlights each typed word where it appears in the message", function()
 		local s = open()
-		type_query(s, "flaky 'polling")
+		type_query(s, "wait 'polling")
 		eq({ "Fix flaky login test" }, titles(s))
 		local lines, ranges = source.format(s.query.matched[1], 60, { selected = true })
 		local rows = texts(lines)
@@ -333,8 +335,54 @@ describe("finder", function()
 		for _, r in ipairs(ranges) do
 			found[#found + 1] = rows[r.row]:sub(r.s + 1, r.e)
 		end
-		eq({ "flaky", "polling" }, found)
+		eq({ "wait", "polling" }, found)
 		s:close()
+	end)
+
+	it("matches the query inside one field, never across the title, location and messages", function()
+		local s = open()
+		type_query(s, "flaky 'polling") -- the title has one word and the last message the other
+		eq({}, titles(s))
+		type_query(s, "flaky login") -- both words are in the title
+		eq({ "Fix flaky login test" }, titles(s))
+		type_query(s, "testapi") -- the end of the title and the start of the location, joined by nothing
+		eq({}, titles(s))
+		s:close()
+	end)
+
+	it("lists a session once for a query that matches several of its fields", function()
+		local s = open()
+		type_query(s, "'login")
+		eq({ "Fix flaky login test", "Add SSO login to admin panel" }, titles(s))
+		type_query(s, "'api") -- the location of one session, nothing else
+		eq({ "Fix flaky login test" }, titles(s))
+		s:close()
+	end)
+
+	it("ranks a session higher when more of its fields match", function()
+		local r1 = row("p", "Dana sync", "other", 60)
+		local r2 = row("q", "Dana sync", "other", 30)
+		r1.recap = "talked to Dana"
+		local scores = {}
+		for i, r in ipairs({ r1, r2 }) do
+			local m = require("vc.finder.matcher")
+			local done
+			m.run(
+				source.items({ r }, false),
+				{ pattern = "dana" },
+				{ ignorecase = true, smartcase = true },
+				function(matched, st)
+					if st then
+						scores[i] = matched[1].score
+						done = true
+					end
+				end
+			)
+			wait(function()
+				return done
+			end)
+		end
+		truthy(scores[1] > scores[2], "recap match adds to the title match")
 	end)
 
 	it("keeps the end of a long location and maps match highlights onto it", function()
