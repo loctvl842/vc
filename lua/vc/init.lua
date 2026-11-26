@@ -91,6 +91,7 @@ function M.start(o)
 	end, 5)
 	-- Messages show as cards from here on; the palette is known by now, so the cards use the terminal's colors.
 	require("vc.notify").setup()
+	require("vc.messages").setup()
 	M.show_finder()
 end
 
