@@ -71,18 +71,18 @@ function M.items(rows, with_new)
 		local text = row.title .. "  " .. location
 		local item = { idx = #items + 1, score = 1, row = row }
 		item.fields = {
-			{ from = 1, to = #row.title },
-			{ from = #row.title + 3, to = #text },
+			{ name = "title", from = 1, to = #row.title },
+			{ name = "cwd", from = #row.title + 3, to = #text },
 		}
 		if row.recap then
 			item.recap_at = #text + 3
 			text = text .. "  " .. row.recap
-			item.fields[#item.fields + 1] = { from = item.recap_at, to = #text, plain = true }
+			item.fields[#item.fields + 1] = { name = "recap", from = item.recap_at, to = #text, plain = true }
 		end
 		if row.last_prompt then
 			item.prompt_at = #text + 3
 			text = text .. "  " .. row.last_prompt
-			item.fields[#item.fields + 1] = { from = item.prompt_at, to = #text, plain = true }
+			item.fields[#item.fields + 1] = { name = "msg", from = item.prompt_at, to = #text, plain = true }
 		end
 		item.text = text
 		items[#items + 1] = item

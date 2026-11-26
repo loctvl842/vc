@@ -1,4 +1,5 @@
 ---@class VC.Finder.Field
+---@field name string the field a `field:value` term names: title, cwd, recap or msg
 ---@field from integer first byte in `text`
 ---@field to integer last byte in `text`
 ---@field plain? boolean matches as a plain substring only (long prose), not fuzzily
