@@ -12,7 +12,7 @@ local function hide_cursor()
 	end
 end
 
-local function restore_cursor()
+function M.restore_cursor()
 	if saved_guicursor then
 		vim.o.guicursor = saved_guicursor
 		saved_guicursor = nil
@@ -26,8 +26,8 @@ function M.mount(session)
 	local list_buf = session.view.list.buf
 
 	vim.api.nvim_create_autocmd("BufEnter", { group = group, buffer = list_buf, callback = hide_cursor })
-	vim.api.nvim_create_autocmd("BufLeave", { group = group, buffer = list_buf, callback = restore_cursor })
-	vim.api.nvim_create_autocmd("BufWipeout", { group = group, buffer = list_buf, callback = restore_cursor })
+	vim.api.nvim_create_autocmd("BufLeave", { group = group, buffer = list_buf, callback = M.restore_cursor })
+	vim.api.nvim_create_autocmd("BufWipeout", { group = group, buffer = list_buf, callback = M.restore_cursor })
 
 	-- A click in the list moves the selection.
 	vim.api.nvim_create_autocmd("CursorMoved", {

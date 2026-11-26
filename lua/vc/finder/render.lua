@@ -58,6 +58,15 @@ end
 function M.render(session)
 	local pattern = session.query.filter.pattern
 	local empty = pattern ~= "" and ('No sessions match "%s"'):format(pattern) or "No sessions"
+	if session._keep_id then
+		for i, item in ipairs(session.query.matched) do
+			if item.row and item.row.id == session._keep_id then
+				session.view.list.cursor = i
+				break
+			end
+		end
+		session._keep_id = nil
+	end
 	ui.list.render(session.view.list, session.query.matched, source.format, empty)
 	ui.list.set_footer(session.view.list, #session.query.matched > 0 and source.footer or source.footer_empty)
 	M.schedule_preview(session)

@@ -16,6 +16,7 @@ local ui = require("vc.finder.ui")
 ---@field on_confirm fun(item: VC.Finder.Item)
 ---@field on_exit fun()
 ---@field augroup? integer
+---@field _keep_id? string session to keep highlighted when the rows change
 local Session = {}
 Session.__index = Session
 
@@ -90,6 +91,8 @@ end
 function Session:set_rows(rows)
 	-- stylua: ignore
 	if self.closed then return end
+	local sel = ui.list.selected(self.view.list)
+	self._keep_id = sel and sel.row and sel.row.id or nil
 	self.rows = rows
 	self.query.items = source.items(rows, self.query.filter.pattern == "")
 	pipeline.load(self.query, self.host, self.query.items)
@@ -116,6 +119,7 @@ function Session:close()
 	if self.augroup then
 		pcall(vim.api.nvim_del_augroup_by_id, self.augroup)
 	end
+	require("vc.finder.autocmds").restore_cursor()
 	self.view.input:close()
 	self.view.list:close()
 	self.view.preview:close()

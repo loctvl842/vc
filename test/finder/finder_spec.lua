@@ -188,7 +188,7 @@ describe("finder", function()
 		end)
 		press(s, "input", "<C-n>")
 		wait(function()
-			return s.view.preview.shown == "a"
+			return vim.startswith(s.view.preview.shown or "", "a:")
 		end)
 		s:close()
 	end)
@@ -206,5 +206,49 @@ describe("finder", function()
 	it("keeps no dependency on BeastVim", function()
 		local hits = vim.fn.systemlist({ "grep", "-rniE", "beast|beastvim", vim.fn.getcwd() .. "/lua" })
 		eq({}, hits)
+	end)
+
+	it("restores the cursor when closed from the list pane", function()
+		local before = vim.o.guicursor
+		local s = open()
+		vim.api.nvim_set_current_win(s.view.list.win)
+		s:close()
+		eq(before, vim.o.guicursor)
+	end)
+
+	it("Enter acts on the typed query even before the debounce fires", function()
+		local s, ev = open()
+		local buf = s.view.input.buf
+		vim.api.nvim_buf_set_lines(buf, 0, 1, false, { " roadmap" })
+		press(s, "input", "<CR>") -- no wait: the 30 ms debounce has not run
+		wait(function()
+			return ev.confirmed ~= nil
+		end)
+		eq("b", ev.confirmed.row.id)
+	end)
+
+	it("keeps the highlighted session when new rows arrive", function()
+		local s = open()
+		press(s, "input", "<C-n>")
+		press(s, "input", "<C-n>") -- "Draft Q4 roadmap outline"
+		local newer = vim.list_extend({ row("z", "Brand new", "p", 1) }, ROWS)
+		s:set_rows(newer)
+		wait(function()
+			return #s.query.matched == 6
+		end)
+		eq("b", ui.list.selected(s.view.list).row.id)
+		s:close()
+	end)
+
+	it("reads a resumed session again (preview cache keyed on size and mtime)", function()
+		local s = open()
+		local r = ROWS[1]
+		local key1 = r.id .. ":" .. r.size .. ":" .. r.mtime
+		ui.preview.show(s.view.preview, r)
+		eq(key1, s.view.preview.shown)
+		local grown = vim.tbl_extend("force", r, { size = r.size + 10 })
+		ui.preview.show(s.view.preview, grown)
+		eq(r.id .. ":" .. grown.size .. ":" .. r.mtime, s.view.preview.shown)
+		s:close()
 	end)
 end)

@@ -35,6 +35,14 @@ local actions = {
 	end,
 	-- Enter on no rows does nothing.
 	confirm = function(s)
+		-- Enter acts on the list for the text in the prompt, not on one that is still being searched.
+		if ui.input.get_text(s.view.input) ~= s.query.filter.pattern or s.query.matching then
+			s.view.input._on_change()
+			vim.wait(500, function()
+				return not s.query.matching
+			end, 5)
+			render.render(s)
+		end
 		local item = ui.list.selected(s.view.list)
 		if not item then
 			return
