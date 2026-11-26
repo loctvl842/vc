@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dev spec: Preview style</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --box:#f1eee6; --new:#2d7a3e; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; --box:#26241f; --new:#7fc98d; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:900px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:36px 0; }
+  h1 { font-size:28px; margin:0 0 8px; } h2 { font-size:20px; margin:0 0 12px; } h3 { font-size:16px; margin:0 0 6px; }
+  p { margin:8px 0; } ul { padding-left:20px; } li { margin:4px 0; }
+  code { font:13px ui-monospace, Menlo, monospace; background:var(--box); padding:1px 5px; border-radius:4px; }
+  .muted { color:var(--muted); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:12px 0; }
+  .meta { font-size:13px; color:var(--muted); }
+  .risk-Low { color:var(--new); } .risk-Medium { color:var(--accent); } .risk-High { color:#c0392b; font-weight:600; }
+  .rec { color:var(--accent); font-weight:600; }
+  table { border-collapse:collapse; width:100%; font-size:14px; display:block; overflow-x:auto; }
+  th,td { border:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }
+  .new { color:var(--new); font-weight:600; }
+  svg { width:100%; height:auto; color:var(--fg); }
+  svg .b { fill:var(--box); stroke:var(--line); } svg .n { fill:var(--card); stroke:var(--new); stroke-width:1.5; }
+  svg text { fill:currentColor; font:12px ui-monospace, Menlo, monospace; } svg .s { fill:var(--muted); font-size:11px; }
+  svg path { stroke:currentColor; fill:none; stroke-width:1.2; }
+  .check li { list-style:none; margin-left:-20px; } .check li::before { content:"\2610\00a0"; color:var(--muted); }
+  details { margin:6px 0; } summary { cursor:pointer; font-weight:600; }
+</style>
+</head>
+<body>
+<main>
+
+<header data-spec="summary">
+  <h1>Preview style: dev spec</h1>
+  <p>Turn the preview from plain transcript text into a styled document: clean lines with no markdown markers, highlight marks, and folds. Records become typed blocks; four small renderers (markdown, code, tool line, diff) turn blocks into lines and marks; the preview applies marks as extmarks and lets Neovim wrap with a hanging indent.</p>
+  <p class="meta">Review copy of <code>docs/dev-specs/finder-preview-style.md</code> (the .md wins). PM spec: <code>docs/pm-specs/finder-preview-style.md</code>.</p>
+</header>
+
+<section data-spec="flow">
+  <h2>How it works</h2>
+  <svg viewBox="0 0 860 250" role="img" aria-label="pipeline">
+    <title>jsonl to blocks to renderers to doc to preview</title>
+    <rect class="b" x="10" y="95" width="110" height="50" rx="8"/><text x="22" y="118">session</text><text x="22" y="134">.jsonl</text>
+    <rect class="b" x="165" y="95" width="150" height="50" rx="8" id="n-transcript"/><title>transcript.lua</title><text x="177" y="118">transcript.lua</text><text class="s" x="177" y="134">records -> blocks</text>
+    <rect class="n" x="375" y="10" width="150" height="40" rx="8" id="n-markdown"/><text x="387" y="35">markdown.lua</text>
+    <rect class="n" x="375" y="65" width="150" height="40" rx="8" id="n-code"/><text x="387" y="90">code.lua</text>
+    <rect class="n" x="375" y="120" width="150" height="40" rx="8" id="n-toolline"/><text x="387" y="145">toolline.lua</text>
+    <rect class="b" x="375" y="175" width="150" height="40" rx="8"/><text x="387" y="200">fold labels</text>
+    <rect class="b" x="585" y="95" width="120" height="50" rx="8"/><text x="597" y="118">VC.Doc</text><text class="s" x="597" y="134">lines marks folds</text>
+    <rect class="b" x="745" y="95" width="105" height="50" rx="8" id="n-preview"/><text x="757" y="118">preview</text><text class="s" x="757" y="134">extmarks</text>
+    <path d="M120 120H165"/><path d="M315 120C345 120 345 30 375 30"/><path d="M315 120C345 120 345 85 375 85"/><path d="M315 120H375"/><path d="M315 120C345 120 345 195 375 195"/>
+    <path d="M525 30C555 30 555 120 585 120"/><path d="M525 85C555 85 555 120 585 120"/><path d="M525 140C555 140 555 120 585 120"/><path d="M525 195C555 195 555 120 585 120"/>
+    <path d="M705 120H745"/>
+    <path d="M450 50V65" stroke-dasharray="3 3"/>
+    <text class="s" x="460" y="60">fences</text>
+  </svg>
+  <p class="meta">Green outline = new module. The render stage is chunked and cancellable like the feed stage today, so a huge session never blocks typing.</p>
+</section>
+
+<section data-spec="research">
+  <h2>Research</h2>
+  <div class="card">
+    <p><b>Searched:</b> <code>transcript</code>, <code>render_file</code>, <code>set_content</code>, <code>line_hl_group</code>, <code>foldexpr</code>, <code>treesitter</code> in <code>lua/ test/ scripts/</code>.</p>
+    <p><b>Found:</b> Builder chunking + cancel, fold map plumbing, palette helpers, fixtures, preview cache. No markdown, code highlight or diff code; no treesitter use yet.</p>
+    <p><b>Checked built-ins (nvim 0.12.6):</b> bundled <code>markdown</code>, <code>markdown_inline</code>, <code>lua</code>, <code>vim</code>, <code>c</code> parsers; <code>get_string_parser</code>; <code>breakindent</code> with <code>list:-1</code>. Real transcripts carry <code>toolUseResult.structuredPatch</code> with line numbers for edits.</p>
+    <p><b>Decision:</b> <span class="rec">Use</span> tree-sitter (markdown, code) with plain fallback, <span class="rec">Use</span> <code>structuredPatch</code> for diffs, <span class="rec">Reuse</span> Builder/fold/highlight plumbing, <span class="rec">Build</span> block model and the four renderers.</p>
+  </div>
+</section>
+
+<section data-spec="architecture-changes">
+  <h2>Files</h2>
+  <table>
+    <tr><th>Path</th><th></th><th>What / why</th></tr>
+    <tr><td><code>lua/vc/transcript.lua</code></td><td>modified</td><td>Typed blocks, results paired to calls by id, chunked render stage returning a <code>VC.Doc</code></td></tr>
+    <tr><td><code>lua/vc/markdown.lua</code></td><td class="new">new</td><td>Tree-sitter markdown to clean lines + marks, hanging indents</td></tr>
+    <tr><td><code>lua/vc/code.lua</code></td><td class="new">new</td><td>Highlight query to palette groups, language aliases</td></tr>
+    <tr><td><code>lua/vc/toolline.lua</code></td><td class="new">new</td><td><code>Name(args)</code> line, result text, diff from <code>structuredPatch</code></td></tr>
+    <tr><td><code>lua/vc/finder/ui/preview.lua</code></td><td>modified</td><td>Apply marks, wrap options, new foldtext</td></tr>
+    <tr><td><code>lua/vc/finder/highlights.lua</code></td><td>modified</td><td>New <code>Preview*</code> groups with cterm fallbacks</td></tr>
+    <tr><td><code>lua/vc/finder/config.lua</code></td><td>modified</td><td><code>preview.result_lines</code> and other tunables</td></tr>
+    <tr><td><code>test/*</code></td><td>modified / new</td><td>transcript, finder, highlights, fixtures; new markdown, code, toolline specs</td></tr>
+    <tr><td><code>scripts/bench-preview.lua</code></td><td class="new">new</td><td>Render time for a 5000-message session</td></tr>
+  </table>
+</section>
+
+<section data-spec="phases">
+  <h2>Phases</h2>
+  <p class="muted">Each phase is mergeable on its own and leaves the preview working.</p>
+
+  <div class="card" data-spec="phase-1">
+    <h3>Phase 1 - Message layout and tool lines</h3>
+    <p>Goal: the Claude Code skeleton with plain text inside. <code>&gt;</code> prompts, <code>●</code> replies, <code>● Name(args)</code> + <code>⎿</code> results, thinking folded. Replaces <code>## You</code> headings and the one-fold-per-run model.</p>
+    <ul>
+      <li data-spec="phase-1-step-1">Block model with results paired to calls (<code>transcript.lua</code>) <span class="risk-Medium">Medium</span></li>
+      <li data-spec="phase-1-step-2">Render stage, truncate results to N lines, rest folded as <code>… +N lines</code> (<code>transcript.lua</code>) <span class="risk-Medium">Medium</span></li>
+      <li data-spec="phase-1-step-3">Tool line summaries (<code>toolline.lua</code>) <span class="risk-Low">Low</span></li>
+      <li data-spec="phase-1-step-4">Preview applies marks and the new folds (<code>preview.lua</code>) <span class="risk-Low">Low</span></li>
+      <li data-spec="phase-1-step-5">Phase-1 highlight groups (<code>highlights.lua</code>) <span class="risk-Low">Low</span></li>
+      <li data-spec="phase-1-step-6">Rewrite transcript and preview tests, add <code>toolUseResult</code> fixtures <span class="risk-Low">Low</span></li>
+    </ul>
+  </div>
+
+  <div class="card" data-spec="phase-2">
+    <h3>Phase 2 - Markdown in replies</h3>
+    <p>Goal: no raw markers, real bold / italic / headings / lists / quotes / links. Depends on Phase 1.</p>
+    <ul>
+      <li data-spec="phase-2-step-1">Markdown renderer on tree-sitter, one pass builds text and marks (<code>markdown.lua</code>) <span class="risk-High">High</span> (offset bookkeeping)</li>
+      <li data-spec="phase-2-step-2">Wire prompts and replies through it (<code>transcript.lua</code>) <span class="risk-Medium">Medium</span></li>
+      <li data-spec="phase-2-step-3">Hanging indent via <code>breakindent</code> + <code>list:-1</code> (<code>preview.lua</code>) <span class="risk-Medium">Medium</span></li>
+      <li data-spec="phase-2-step-4">Markdown groups (<code>highlights.lua</code>) <span class="risk-Low">Low</span></li>
+      <li data-spec="phase-2-step-5">Table tests per construct (<code>test/markdown_spec.lua</code>) <span class="risk-Low">Low</span></li>
+    </ul>
+  </div>
+
+  <div class="card" data-spec="phase-3">
+    <h3>Phase 3 - Code blocks</h3>
+    <p>Goal: highlighted fences using our palette, never the colorscheme. Depends on Phase 2 step 1.</p>
+    <ul>
+      <li data-spec="phase-3-step-1">Highlight query to palette groups, aliases, pcall on missing parser (<code>code.lua</code>) <span class="risk-Medium">Medium</span></li>
+      <li data-spec="phase-3-step-2">Fence rendering: dim language label, indent, syntax marks (<code>markdown.lua</code>) <span class="risk-Low">Low</span></li>
+      <li data-spec="phase-3-step-3">Code groups (<code>highlights.lua</code>); red, green, yellow, blue, cyan slots already exist, add magenta (ANSI 5) <span class="risk-Low">Low</span></li>
+      <li data-spec="phase-3-step-4">Tests (<code>test/code_spec.lua</code>) <span class="risk-Low">Low</span></li>
+    </ul>
+  </div>
+
+  <div class="card" data-spec="phase-4">
+    <h3>Phase 4 - Diffs</h3>
+    <p>Goal: Update / Write as colored diffs with line numbers, straight from <code>structuredPatch</code>. Depends on Phase 1.</p>
+    <ul>
+      <li data-spec="phase-4-step-1">Diff lines + count line, fallback when no patch (<code>toolline.lua</code>) <span class="risk-Medium">Medium</span></li>
+      <li data-spec="phase-4-step-2">Diff bands with BeastVim's tints (line bg = 15% of green / red over the terminal bg, sign fg 60%, bold) built from the terminal palette (<code>highlights.lua</code>) <span class="risk-Low">Low</span></li>
+      <li data-spec="phase-4-step-3">Tests with sample patches (<code>test/toolline_spec.lua</code>) <span class="risk-Low">Low</span></li>
+    </ul>
+  </div>
+
+  <div class="card" data-spec="phase-5">
+    <h3>Phase 5 - Edge content and performance</h3>
+    <p>Goal: tables, images, nothing dropped, long sessions stay responsive.</p>
+    <ul>
+      <li data-spec="phase-5-step-1">Pipe tables with box lines (<code>markdown.lua</code>) <span class="risk-Medium">Medium</span></li>
+      <li data-spec="phase-5-step-2">Placeholders and plain fallback for unknown content <span class="risk-Low">Low</span></li>
+      <li data-spec="phase-5-step-3">Chunked cancellable render, early first screen, bench script <span class="risk-Medium">Medium</span></li>
+      <li data-spec="phase-5-step-4">Every new group defined in rgb and cterm modes, redefined on background flip (<code>highlights_spec.lua</code>) <span class="risk-Low">Low</span></li>
+    </ul>
+  </div>
+</section>
+
+<section data-spec="decisions">
+  <h2>Decisions for you</h2>
+  <div class="card" data-spec="decision-wrapping">
+    <b>1. Wrapping</b>
+    <ul>
+      <li><span class="rec">Recommended:</span> native wrap with <code>breakindent</code>. Re-flows on resize, copied paragraphs stay whole. Fallback to pre-wrapping only if list indents come out wrong in Phase 2 step 3.</li>
+      <li>Pre-wrap at render time: exact control, but re-render on resize and hard line breaks in copied text.</li>
+    </ul>
+  </div>
+  <div class="card" data-spec="decision-parser">
+    <b>2. Markdown parsing</b>
+    <ul>
+      <li><span class="rec">Recommended:</span> tree-sitter (bundled, handles nesting). Missing parser means plain text, never an error.</li>
+      <li>Hand-written scanner: no dependency, more edge-case bugs.</li>
+    </ul>
+  </div>
+  <div class="card" data-spec="decision-constants">
+    <b>3. Constants</b> (result lines shown, truncation lengths, band tint): start with guesses, fix them when your screenshots arrive. They live only in <code>highlights.lua</code> and <code>config.lua</code>.
+  </div>
+</section>
+
+<section data-spec="testing-strategy">
+  <h2>Testing</h2>
+  <ul>
+    <li><b>Headless:</b> <code>make test</code>, <code>make lint</code>; each phase adds its own spec; Phase 1 rewrites the preview and transcript specs.</li>
+    <li><b>Bench:</b> <code>scripts/bench-preview.lua</code> after Phase 5 (5000-message session).</li>
+    <li><b>Manual:</b> PM scenarios 1-8 in dark and light terminal themes, compared against your Claude Code screenshots.</li>
+  </ul>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul class="check">
+    <li>Preview and Claude Code read as the same screen</li>
+    <li>No raw markdown symbols in any reply</li>
+    <li>Distinct bold, italic, headings, lists, quotes, inline code, links, strikethrough</li>
+    <li>Highlighted code for common languages; unknown language still looks like code</li>
+    <li>One line per tool call, results expand in place; colored diffs with line numbers</li>
+    <li>Light and dark readable, live repaint on flip</li>
+    <li>Rapid selection never freezes typing; hanging indents stay straight</li>
+    <li><code>make test</code> and <code>make lint</code> pass; every new group has a cterm fallback</li>
+  </ul>
+</section>
+
+</main>
+</body>
+</html>
