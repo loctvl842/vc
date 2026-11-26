@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec: Terminal Theme</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:960px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:36px 0; }
+  h1 { margin:0 0 8px; } h2 { margin:0 0 10px; font-size:1.25rem; }
+  .muted { color:var(--muted); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .state { margin:16px 0; } .state > .label { font-weight:600; font-size:.9rem; }
+
+  /* mock terminals: each .term carries its own theme through variables */
+  .term { --t-bg:#2d2a2e; --t-fg:#fcfcfa; --t-dim:#727072; --t-sel:#403e41; --t-acc:#78dce8; --t-grn:#a9dc76; --t-hi:#ffd866; --t-bd:#5b595c; --t-err:#ff6188;
+          background:var(--t-bg); color:var(--t-fg); border-radius:8px; padding:12px 14px; overflow-x:auto; font:12.5px/1.4 ui-monospace, Menlo, monospace; margin:8px 0 0; white-space:pre; border:1px solid var(--line); }
+  .term.light { --t-bg:#fdf6e3; --t-fg:#3b4a50; --t-dim:#93a1a1; --t-sel:#eee8d5; --t-acc:#268bd2; --t-grn:#6c8b00; --t-hi:#b58900; --t-bd:#c9c3ae; --t-err:#dc322f; }
+  .term .bd { color:var(--t-bd); } .term .ac { color:var(--t-acc); font-weight:600; } .term .gr { color:var(--t-grn); }
+  .term .dm { color:var(--t-dim); } .term .hi { color:var(--t-hi); font-weight:700; } .term .er { color:var(--t-err); }
+  .term .sel { background:var(--t-sel); display:inline-block; min-width:100%; }
+  .swatches { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 0; font-size:.85rem; }
+  .sw { display:flex; align-items:center; gap:6px; } .sw i { width:14px; height:14px; border-radius:3px; border:1px solid var(--line); display:inline-block; }
+  .pair { display:grid; grid-template-columns:1fr 1fr; gap:12px; } @media (max-width:760px){ .pair { grid-template-columns:1fr; } }
+
+  ul.checks { list-style:none; padding-left:0; } ul.checks li { padding:3px 0; }
+  ul.checks li::before { content:"\2610  "; color:var(--accent); }
+  details.scn { margin:8px 0; } details.scn summary { cursor:pointer; font-weight:600; padding:8px 0; }
+  .steps { display:grid; gap:8px; } .step { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .step > div { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:8px 12px; font-size:.92rem; }
+  .step .do { border-left:3px solid var(--accent); } .step b { display:block; font-size:.75rem; text-transform:uppercase; color:var(--muted); letter-spacing:.04em; }
+  @media (max-width:640px){ .step { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <header data-spec="summary">
+    <h1>Terminal Theme</h1>
+    <p>VimClaude takes its colors from the terminal it runs in. Whatever theme the terminal uses (for example Monokai Pro), the finder looks like it belongs there, and when the terminal switches theme or flips between light and dark, the finder follows on its own. There is nothing to set up.</p>
+  </header>
+
+  <section data-spec="problem">
+    <h2>Problem</h2>
+    <p>The finder is drawn in Neovim's built-in default colors, which know nothing about the terminal. In a themed terminal it looks like a foreign window: a different background shade, clashing accents, and in a light terminal text that can be hard to read. Fixing it today means picking, installing and maintaining a matching theme by hand, and redoing that whenever the terminal theme changes.</p>
+    <p class="muted"><b>Why now:</b> the finder is the only screen besides Claude Code, and Claude Code already matches the terminal. The finder is the one visual seam left.</p>
+  </section>
+
+  <section data-spec="target-behavior">
+    <h2>Target behavior</h2>
+    <p>The finder uses the terminal's own background, text color and palette. Nothing is chosen inside VimClaude.</p>
+
+    <div class="state" data-spec="state-1"><div class="label">State 1 - terminal theme is dark (Monokai Pro)</div>
+<div class="term"><span class="bd">┌</span> <span class="ac">Claude Sessions</span> <span class="bd">─────────────────────────────────────────────────────────────┐</span>
+<span class="bd">│</span> <span class="gr">&gt;</span> login_                                                             <span class="dm">2 / 12</span>  <span class="bd">│</span>
+<span class="bd">├──────────────────────────────────────────┬───────────────────────────────────┤</span>
+<span class="bd">│</span><span class="sel"> ▌Fix flaky <span class="hi">login</span> test                    </span><span class="bd">│</span> <span class="ac">You</span>                               <span class="bd">│</span>
+<span class="bd">│</span><span class="sel">    <span class="dm">api-server            2m ago   34 msg</span> </span><span class="bd">│</span> The <span class="hi">login</span> test fails on CI only.  <span class="bd">│</span>
+<span class="bd">│</span>  Rework <span class="hi">login</span> form copy                  <span class="bd">│</span>                                   <span class="bd">│</span>
+<span class="bd">│</span>    <span class="dm">web-app               3d ago    9 msg</span> <span class="bd">│</span> <span class="gr">Claude</span>                            <span class="bd">│</span>
+<span class="bd">│</span>                                          <span class="bd">│</span> Looks like a timing issue ...     <span class="bd">│</span>
+<span class="bd">├──────────────────────────────────────────┴───────────────────────────────────┤</span>
+<span class="bd">│</span> <span class="dm">&lt;CR&gt; continue   &lt;C-n&gt;/&lt;C-p&gt; move   &lt;Esc&gt; exit</span>                                <span class="bd">│</span>
+<span class="bd">└──────────────────────────────────────────────────────────────────────────────┘</span></div>
+      <div class="swatches">
+        <span class="sw"><i style="background:#2d2a2e"></i>background = terminal's</span>
+        <span class="sw"><i style="background:#fcfcfa"></i>text = terminal's</span>
+        <span class="sw"><i style="background:#78dce8"></i>title, "You", accents</span>
+        <span class="sw"><i style="background:#ffd866"></i>matched letters</span>
+        <span class="sw"><i style="background:#727072"></i>hints, meta lines</span>
+        <span class="sw"><i style="background:#403e41"></i>selected row tint</span>
+      </div>
+    </div>
+
+    <div class="state" data-spec="state-2"><div class="label">State 2 - terminal theme is light</div>
+<div class="term light"><span class="bd">┌</span> <span class="ac">Claude Sessions</span> <span class="bd">─────────────────────────────────────────────────────────────┐</span>
+<span class="bd">│</span> <span class="gr">&gt;</span> login_                                                             <span class="dm">2 / 12</span>  <span class="bd">│</span>
+<span class="bd">├──────────────────────────────────────────┬───────────────────────────────────┤</span>
+<span class="bd">│</span><span class="sel"> ▌Fix flaky <span class="hi">login</span> test                    </span><span class="bd">│</span> <span class="ac">You</span>                               <span class="bd">│</span>
+<span class="bd">│</span><span class="sel">    <span class="dm">api-server            2m ago   34 msg</span> </span><span class="bd">│</span> The <span class="hi">login</span> test fails on CI only.  <span class="bd">│</span>
+<span class="bd">│</span>  Rework <span class="hi">login</span> form copy                  <span class="bd">│</span>                                   <span class="bd">│</span>
+<span class="bd">└──────────────────────────────────────────┴───────────────────────────────────┘</span></div>
+      <p class="muted">Same layout. Light background, dark text, every accent still readable. Nothing washed out or invisible.</p>
+    </div>
+
+    <div class="state" data-spec="state-3"><div class="label">State 3 - terminal theme changes while the finder is open</div>
+      <div class="card">The next time the terminal reports the change, the finder repaints in the new colors in place. Query, selection and scroll position are untouched.</div>
+    </div>
+  </section>
+
+  <section data-spec="scenarios">
+    <h2>Scenarios</h2>
+
+    <details class="scn" open data-spec="scenario-1"><summary>1 - First launch in a themed terminal</summary>
+      <div class="steps">
+        <div class="step"><div class="do"><b>User</b>Has a dark terminal themed "Monokai Pro" and starts VimClaude.</div><div><b>Sees</b>The finder opens already in Monokai Pro colors. No flash of default colors, no setup step.</div></div>
+        <div class="step"><div class="do"><b>User</b>Types a query.</div><div><b>Sees</b>Matched letters, selected row and preview colors all come from the same theme.</div></div>
+      </div>
+    </details>
+
+    <details class="scn" data-spec="scenario-2"><summary>2 - Same finder, different terminal</summary>
+      <div class="steps">
+        <div class="step"><div class="do"><b>User</b>Opens VimClaude in a second terminal with a pale light theme.</div><div><b>Sees</b>A light finder with dark text, readable everywhere, with that terminal's accents.</div></div>
+      </div>
+    </details>
+
+    <details class="scn" data-spec="scenario-3"><summary>3 - Terminal flips light/dark while the finder is open</summary>
+      <div class="steps">
+        <div class="step"><div class="do"><b>User</b>Has the finder open in a dark terminal.</div><div><b>Sees</b>Dark colors.</div></div>
+        <div class="step"><div class="do"><b>User</b>(or macOS at sunset) switches the terminal to its light theme.</div><div><b>Sees</b>The finder repaints light. Query text, highlighted row and preview scroll position stay where they were.</div></div>
+      </div>
+    </details>
+
+    <details class="scn" data-spec="scenario-4"><summary>4 - Theme changes while Claude Code is open</summary>
+      <div class="steps">
+        <div class="step"><div class="do"><b>User</b>Is inside a Claude Code session when the terminal theme changes.</div><div><b>Sees</b>Claude Code changes with the terminal, since the terminal draws it.</div></div>
+        <div class="step"><div class="do"><b>User</b>Quits Claude Code.</div><div><b>Sees</b>The finder returns in the new theme, no stale colors.</div></div>
+      </div>
+    </details>
+
+    <details class="scn" data-spec="scenario-5"><summary>5 - Terminal cannot report its theme (edge case)</summary>
+      <div class="steps">
+        <div class="step"><div class="do"><b>User</b>Starts VimClaude in a terminal or multiplexer that does not say whether it is light or dark.</div><div><b>Sees</b>A dark scheme using the terminal's own palette. No error, readable text.</div></div>
+        <div class="step"><div class="do"><b>User</b>Terminal later starts reporting a light theme.</div><div><b>Sees</b>The finder switches to light at that moment.</div></div>
+      </div>
+    </details>
+
+    <details class="scn" data-spec="scenario-6"><summary>6 - Terminal with very few colors (edge case)</summary>
+      <div class="steps">
+        <div class="step"><div class="do"><b>User</b>Runs VimClaude in a terminal that supports only the basic 16 colors.</div><div><b>Sees</b>The finder still follows the terminal palette. Selected row and borders stay visible, with fewer shades.</div></div>
+      </div>
+    </details>
+  </section>
+
+  <section data-spec="behavior-rules">
+    <h2>Behavior rules</h2>
+    <ul>
+      <li>The user never picks, installs or configures a theme for VimClaude. There is no setting for it.</li>
+      <li>The finder background is the terminal's own background, so there is no seam at the terminal edge.</li>
+      <li>Colors always come from the terminal's palette, never a fixed set baked into VimClaude. Two terminals with different themes give two different-looking finders.</li>
+      <li>Meaning stays constant across themes: title and prompt are accent, matched letters highlight, project/time/count dim, a missing project folder error red, "You" and "Claude" two distinct colors.</li>
+      <li>A theme change never resets the query, selection, scroll position or open preview.</li>
+      <li>While Claude Code is full-window, VimClaude draws nothing, so the terminal theme shows through unchanged.</li>
+      <li>If light/dark cannot be known, assume dark.</li>
+      <li>The cursor stays hidden in the list and visible in the query, as today.</li>
+    </ul>
+  </section>
+
+  <section data-spec="success-criteria">
+    <h2>Success criteria</h2>
+    <ul class="checks">
+      <li>In a dark themed terminal the finder background is indistinguishable from the terminal background.</li>
+      <li>In a light themed terminal all text, hints and the selected row are clearly readable.</li>
+      <li>Two terminals with different themes show visibly different finder colors, each matching its own terminal.</li>
+      <li>Changing the terminal theme or light/dark mode with the finder open repaints it without losing query, selection or scroll.</li>
+      <li>After quitting Claude Code following a theme change, the finder shows the new theme.</li>
+      <li>No theme setting, install step or restart is needed.</li>
+      <li>When the terminal does not report light/dark, the finder opens dark and readable with no error.</li>
+      <li>Matched letters, selected row, dim text and error red stay distinguishable from normal text in every theme tested.</li>
+    </ul>
+  </section>
+
+  <section data-spec="out-of-scope">
+    <h2>Out of scope</h2>
+    <ul>
+      <li>Choosing or switching themes from inside VimClaude: the terminal owns the theme.</li>
+      <li>Custom color overrides for parts of the finder: can be added later if needed.</li>
+      <li>Theming Claude Code itself: it has its own setting and is drawn by the terminal.</li>
+      <li>Terminals that cannot show colors at all.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
