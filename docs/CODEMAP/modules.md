@@ -26,4 +26,4 @@
 - Session: `set_rows(rows)`, `busy(on)`, `close()`, `relayout()`
 - `source.items(rows, with_new)`, `source.format(item, width) -> lines, ranges`, `source.relative_time`
 - `ui.input`, `ui.list` (items span several rows), `ui.preview` (`show(row)`, `note`, foldexpr/foldtext)
-- Deps: `vc.transcript`, `vc.debounce`; highlights link to theme groups (`VCFinder*`)
+- Deps: `vc.transcript`, `vc.debounce`; `VCFinder*` groups use the terminal palette (cterm 0-15, `NONE` bg); `highlights.setup()` re-tints the selected row on `OptionSet background`

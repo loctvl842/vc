@@ -22,7 +22,7 @@ lua/vc/
     source.lua                items + row format ("New session" only on empty query)
     render.lua                matched -> list, footer, debounced preview
     keymaps.lua autocmds.lua  keys per pane; cursor hiding, resize, focus guard
-    layout.lua highlights.lua config.lua   full-screen geometry, links to theme groups
+    layout.lua highlights.lua config.lua   full-screen geometry, terminal-palette groups
     query.lua filter.lua host.lua          state holders, pipeline-to-UI contract
     pipeline/match.lua        load items once, rescore per keystroke
     matcher.lua score.lua topk.lua async.lua   fuzzy engine (copied from BeastVim)
@@ -33,7 +33,7 @@ scripts/bench-index.lua       cold/warm index timing on synthetic store
 ```
 
 ## Setup Flow
-1. `vc.start` sets UI options (no statusline/tabline/cmdline, no intro).
+1. `vc.start` sets UI options (no statusline/tabline/cmdline, no intro) and `termguicolors` off, so the terminal theme paints everything, Claude Code included.
 2. `show_finder`: reset to one empty window, `finder.open`, `index.load` (cache rows first, then rescan).
 3. Enter -> `open_item` -> `claude.run`; `on_exit` -> `show_finder` again (any exit code).
 4. Esc -> cancel index load, `qa!`.
@@ -45,4 +45,5 @@ scripts/bench-index.lua       cold/warm index timing on synthetic store
 
 ## Reload / Lifecycle Contracts
 - Preview cache is keyed `id:size:mtime` (a resumed session is reread).
+- `finder.highlights` autocmd (`OptionSet background`) only redefines highlight groups, never buffers or windows.
 - `finder.autocmds.restore_cursor` runs on every close (guicursor is hidden while the list is focused).

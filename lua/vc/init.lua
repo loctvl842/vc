@@ -4,6 +4,7 @@
 local claude = require("vc.claude")
 local finder = require("vc.finder")
 local index = require("vc.sessions.index")
+local theme = require("vc.theme")
 
 local M = {}
 
@@ -75,7 +76,7 @@ local function set_ui_options()
 	vim.o.showmode = false
 	vim.o.shortmess = vim.o.shortmess .. "I"
 	vim.o.swapfile = false
-	-- Palette colors, so the terminal's own theme paints everything (Neovim would otherwise switch to fixed RGB).
+	-- Palette colors until the terminal's real colors are known (`vc.theme`), so its theme paints everything.
 	vim.o.termguicolors = false
 end
 
@@ -83,6 +84,11 @@ end
 function M.start(o)
 	opts = o or {}
 	set_ui_options()
+	-- Learn the terminal's colors before the first paint; a terminal that does not answer costs one timeout.
+	theme.refresh()
+	vim.wait(250, function()
+		return not theme.pending
+	end, 5)
 	M.show_finder()
 end
 

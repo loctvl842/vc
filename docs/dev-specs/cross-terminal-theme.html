@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dev Spec: Terminal Theme</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --ok:#2f7d32; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; --ok:#6fcf74; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:920px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:36px 0; }
+  h1 { margin:0 0 8px; } h2 { margin:0 0 10px; font-size:1.25rem; } h3 { margin:0 0 6px; font-size:1.05rem; }
+  .muted { color:var(--muted); }
+  code { font:13px ui-monospace, Menlo, monospace; background:var(--card); border:1px solid var(--line); border-radius:4px; padding:0 4px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:10px 0; }
+  .tablewrap { overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; font-size:.92rem; }
+  th, td { text-align:left; vertical-align:top; padding:6px 10px; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-weight:600; font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; }
+  tr.rec td { background:color-mix(in srgb, var(--accent) 10%, transparent); }
+  .tag { font-size:.72rem; border:1px solid var(--line); border-radius:99px; padding:1px 8px; color:var(--muted); }
+  .tag.risk-m { color:var(--accent); border-color:var(--accent); }
+  ol.steps { padding-left:20px; } ol.steps li { margin:10px 0; }
+  ul.checks { list-style:none; padding-left:0; } ul.checks li { padding:3px 0; }
+  ul.checks li::before { content:"\2610  "; color:var(--accent); }
+  svg { width:100%; height:auto; color:var(--fg); }
+  svg .box { fill:var(--card); stroke:var(--line); stroke-width:1.5; }
+  svg .hot { fill:color-mix(in srgb, var(--accent) 14%, var(--card)); stroke:var(--accent); stroke-width:1.5; }
+  svg text { fill:currentColor; font:13px system-ui, sans-serif; }
+  svg .sm { font-size:11px; fill:var(--muted); }
+  svg .ln { stroke:currentColor; stroke-width:1.5; fill:none; }
+</style>
+</head>
+<body>
+<main>
+  <header data-spec="summary">
+    <h1>Terminal Theme - dev spec</h1>
+    <p>The finder gets its colors from the terminal instead of Neovim's built-in scheme. We turn <code>termguicolors</code> off, define every <code>VCFinder*</code> group with terminal palette indexes and a transparent background, and re-apply the few light/dark groups when <code>'background'</code> changes. Neovim already detects the terminal's light/dark state, so no detection code is written.</p>
+    <p class="muted">PM spec: <code>docs/pm-specs/cross-terminal-theme.md</code></p>
+  </header>
+
+  <section data-spec="context">
+    <h2>Context</h2>
+    <p><b>Problem.</b> <code>lua/vc/finder/highlights.lua</code> links each group to a default-scheme group. Neovim turns on <code>termguicolors</code> by itself when the terminal supports it, so those links resolve to fixed RGB colors that ignore the terminal theme. Nothing reacts to <code>'background'</code> changing.</p>
+    <p><b>Solution.</b> Palette indexes (0-15) and <code>NONE</code> backgrounds, plus one <code>OptionSet background</code> autocmd. Highlights only; buffers and windows are untouched, so query, selection and scroll survive.</p>
+  </section>
+
+  <section data-spec="flow">
+    <h2>How the color gets from the terminal to the finder</h2>
+    <svg viewBox="0 0 880 210" role="img" aria-label="Color flow">
+      <title>Terminal theme to finder colors</title>
+      <rect id="n-terminal" class="box" x="10" y="60" width="170" height="70" rx="8"><title>Terminal</title></rect>
+      <text x="95" y="90" text-anchor="middle">Terminal</text><text x="95" y="110" text-anchor="middle" class="sm">palette 0-15, bg, light/dark</text>
+      <rect id="n-nvim" class="box" x="250" y="60" width="190" height="70" rx="8"><title>Neovim</title></rect>
+      <text x="345" y="90" text-anchor="middle">Neovim TUI</text><text x="345" y="110" text-anchor="middle" class="sm">termguicolors = false</text>
+      <rect id="n-hl" class="hot" x="510" y="10" width="170" height="70" rx="8"><title>highlights.lua</title></rect>
+      <text x="595" y="40" text-anchor="middle">highlights.lua</text><text x="595" y="60" text-anchor="middle" class="sm">cterm indexes, bg NONE</text>
+      <rect id="n-opt" class="box" x="510" y="120" width="170" height="70" rx="8"><title>OptionSet background</title></rect>
+      <text x="595" y="150" text-anchor="middle">OptionSet</text><text x="595" y="170" text-anchor="middle" class="sm">background -> re-apply</text>
+      <rect id="n-finder" class="box" x="740" y="60" width="130" height="70" rx="8"><title>Finder windows</title></rect>
+      <text x="805" y="90" text-anchor="middle">Finder</text><text x="805" y="110" text-anchor="middle" class="sm">winhl groups</text>
+      <path class="ln" d="M180 95 H250"/><path class="ln" d="M440 85 L510 50"/><path class="ln" d="M440 105 L510 150"/>
+      <path class="ln" d="M680 45 L740 85"/><path class="ln" d="M595 120 V80"/>
+      <text x="215" y="85" text-anchor="middle" class="sm">theme, 2031</text>
+    </svg>
+  </section>
+
+  <section data-spec="research">
+    <h2>Research</h2>
+    <div class="card" data-spec="research-repo"><b>Repo.</b> Searched <code>colorscheme|background|theme|highlight|nvim_set_hl|winhl|termguicolors|OptionSet</code>. All color logic lives in <code>highlights.lua</code>; windows consume it via <code>winhl</code>. No colorscheme, no <code>termguicolors</code>/<code>background</code> setting, no highlight test. <b>Reuse</b> group names, <code>setup()</code> entry point and the augroup style of <code>finder/autocmds.lua</code>.</div>
+    <div class="card" data-spec="research-builtin"><b>Built-ins.</b> Neovim 0.12.6: <code>termguicolors</code> is auto-enabled (must be set off); with it off, <code>cterm*</code> indexes 0-15 are the terminal's palette and <code>NONE</code> keeps its background; <code>'background'</code> is detected and updated on theme change (mode 2031); <code>OptionSet background</code> fires. <b>Use</b> these, <b>Build</b> only the table and one autocmd. No OSC queries.</div>
+  </section>
+
+  <section data-spec="architecture-changes">
+    <h2>Files</h2>
+    <div class="tablewrap"><table>
+      <tr><th>Path</th><th></th><th>What</th></tr>
+      <tr><td><code>lua/vc/init.lua</code></td><td>modified</td><td><code>set_ui_options</code> sets <code>termguicolors = false</code></td></tr>
+      <tr><td><code>lua/vc/finder/highlights.lua</code></td><td>modified</td><td>explicit cterm groups, <code>apply()</code>, <code>OptionSet background</code> autocmd</td></tr>
+      <tr><td><code>test/finder/highlights_spec.lua</code></td><td>new</td><td>headless checks of groups and the light/dark switch</td></tr>
+      <tr><td><code>docs/CODEMAP/modules.md</code></td><td>modified</td><td>via <code>/update-codemap</code></td></tr>
+    </table></div>
+
+    <h3 data-spec="palette-map" style="margin-top:18px">Palette map</h3>
+    <div class="tablewrap"><table>
+      <tr><th>Role</th><th>Groups</th><th>Definition</th></tr>
+      <tr><td>Surface</td><td><code>Normal</code>, border bg</td><td>fg/bg <code>NONE</code> (terminal's own)</td></tr>
+      <tr><td>Border, dim</td><td><code>Border</code>, <code>ListDim</code>, <code>Hint</code></td><td><code>ctermfg=8</code></td></tr>
+      <tr><td>Accent</td><td><code>InputTitle</code>, <code>PreviewTitle</code>, <code>PreviewHeading</code>, <code>Spinner</code>, <code>ListSelectionPrefix</code>, <code>PreviewYou</code></td><td><code>ctermfg=6</code> (bold titles)</td></tr>
+      <tr><td>Match</td><td><code>ListMatch</code></td><td><code>ctermfg=3 bold</code></td></tr>
+      <tr><td>New / Claude</td><td><code>ListNew</code>, <code>PreviewClaude</code></td><td><code>ctermfg=2</code></td></tr>
+      <tr><td>Error</td><td><code>ListGone</code></td><td><code>ctermfg=1</code></td></tr>
+      <tr><td>Selected row</td><td><code>ListCursorLine</code></td><td><code>ctermbg=0</code> dark, <code>ctermbg=7</code> light</td></tr>
+    </table></div>
+  </section>
+
+  <section data-spec="phases">
+    <h2>Phases</h2>
+
+    <div class="card" data-spec="phase-1">
+      <h3>Phase 1 - Palette colors: finder follows the terminal theme</h3>
+      <ol class="steps">
+        <li data-spec="phase-1-step-1"><b>Turn off 24-bit color</b> <code>lua/vc/init.lua</code> <span class="tag risk-m">risk: medium</span><br>Add <code>vim.o.termguicolors = false</code> to <code>set_ui_options</code>. Risk: Claude Code's RGB colors in the terminal buffer are downsampled to 256; checked in Phase 3.</li>
+        <li data-spec="phase-1-step-2"><b>Define groups from the palette</b> <code>lua/vc/finder/highlights.lua</code> <span class="tag risk-m">risk: medium</span><br>Replace the links with cterm specs per the palette map, <code>default = true</code>. Risk: index 8 can equal the background in some themes (dim text vanishes).</li>
+        <li data-spec="phase-1-step-3"><b>Unit specs</b> <code>test/finder/highlights_spec.lua</code> <span class="tag">low</span><br>No <code>ctermbg</code> on Normal, accent is 6, selected row 0 on dark, no group links to a default-scheme group.</li>
+      </ol>
+    </div>
+
+    <div class="card" data-spec="phase-2">
+      <h3>Phase 2 - Live light/dark</h3>
+      <ol class="steps">
+        <li data-spec="phase-2-step-1"><b>Re-apply on background change</b> <code>lua/vc/finder/highlights.lua</code> <span class="tag">low</span><br>Augroup <code>VCFinderHighlights</code>, <code>OptionSet</code> on <code>background</code> calls <code>apply()</code>. Highlights only, so query, selection and scroll are untouched.</li>
+        <li data-spec="phase-2-step-2"><b>Spec for the switch</b> <code>test/finder/highlights_spec.lua</code> <span class="tag">low</span><br>Type a query, set <code>background=light</code>, assert selected row is 7 and query/selection unchanged; default is dark.</li>
+      </ol>
+    </div>
+
+    <div class="card" data-spec="phase-3">
+      <h3>Phase 3 - Verify in real terminals and document</h3>
+      <ol class="steps">
+        <li data-spec="phase-3-step-1"><b>Manual run</b> <span class="tag risk-m">risk: medium</span><br>PM scenarios 1-6 in Ghostty (Monokai Pro + a light theme), inside tmux, and with <code>TERM=xterm</code>. Compare Claude Code rendering before and after in the terminal buffer. If dim text, selected row or Claude Code colors fail, use the fallback below.</li>
+        <li data-spec="phase-3-step-2"><b>Codemap</b> <code>docs/CODEMAP/</code> <span class="tag">low</span><br>Run <code>/update-codemap</code>.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section data-spec="decisions">
+    <h2>Decision for you</h2>
+    <div class="tablewrap"><table>
+      <tr><th>Option</th><th>What</th><th>Trade-off</th></tr>
+      <tr class="rec" data-spec="decision-a"><td><b>A. Terminal palette</b> (recommended)</td><td><code>termguicolors</code> off, cterm 0-15, transparent bg</td><td>Simple, robust, palette changes follow with no code, no OSC queries. Selected row and dim use palette slots, not a computed tint. Claude Code RGB is downsampled to 256 colors.</td></tr>
+      <tr data-spec="decision-b"><td>B. Query the terminal</td><td>Keep <code>termguicolors</code>; read palette/bg/fg via OSC 4/10/11, blend tint and dim, set <code>g:terminal_color_N</code></td><td>Exact tints and Claude Code colors; needs async queries, timeout, tmux passthrough, and a fallback to A anyway.</td></tr>
+    </table></div>
+    <p class="muted">Phase 3 decides: if A passes the manual checks, B is not built. Otherwise B becomes a follow-up dev spec and Phases 1-2 stay as its fallback.</p>
+  </section>
+
+  <section data-spec="testing-strategy">
+    <h2>Testing</h2>
+    <ul>
+      <li><b>Headless:</b> <code>make test</code>, <code>make test SPEC=test/finder/highlights_spec.lua</code>, <code>make lint</code>.</li>
+      <li><b>Bench:</b> n/a, no hot path touched.</li>
+      <li><b>Manual:</b> PM scenarios 1-6. Scenario 3: flip Ghostty light/dark with the finder open. Scenario 5: <code>TERM=xterm</code> in tmux without focus events.</li>
+    </ul>
+  </section>
+
+  <section data-spec="success-criteria">
+    <h2>Success criteria</h2>
+    <ul class="checks">
+      <li>Dark themed terminal: finder background indistinguishable from the terminal's.</li>
+      <li>Light themed terminal: all text, hints and selected row clearly readable.</li>
+      <li>Two terminals with different themes give visibly different finders, each matching its own.</li>
+      <li>Theme or light/dark change with the finder open repaints without losing query, selection or scroll.</li>
+      <li>After quitting Claude Code following a theme change, the finder shows the new theme.</li>
+      <li>No theme setting, install step or restart needed.</li>
+      <li>Terminal not reporting light/dark: finder opens dark and readable, no error.</li>
+      <li>Matched letters, selected row, dim text and error red stay distinguishable in every theme tested.</li>
+      <li><code>make test</code> and <code>make lint</code> pass; no <code>VCFinder*</code> group links to a default-scheme group.</li>
+      <li>Claude Code in the terminal buffer shows no visible color regression.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

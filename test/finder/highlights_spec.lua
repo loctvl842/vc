@@ -1,5 +1,6 @@
 local Finder = require("vc.finder")
 local highlights = require("vc.finder.highlights")
+local theme = require("vc.theme")
 
 local function hl(name)
 	return vim.api.nvim_get_hl(0, { name = "VCFinder" .. name, link = false })
@@ -18,7 +19,7 @@ describe("finder highlights", function()
 	end)
 
 	it("takes accent colors from the palette", function()
-		eq(6, hl("PreviewTitle").ctermfg)
+		eq(3, hl("PreviewTitle").ctermfg)
 		eq(1, hl("ListGone").ctermfg)
 	end)
 
@@ -45,5 +46,39 @@ describe("finder highlights", function()
 	it("falls back to the dark tint when nothing says otherwise", function()
 		vim.o.background = "dark"
 		eq(0, hl("ListCursorLine").ctermbg)
+	end)
+
+	describe("with the terminal's real colors", function()
+		local palette = { fg = { 252, 252, 250 }, bg = { 45, 42, 46 } }
+		for i = 0, 15 do
+			palette[i] = { i * 10, i * 10, i * 10 }
+		end
+
+		before_each(function()
+			theme.palette = palette
+			highlights.apply()
+		end)
+
+		it("blends a tint for the selected row and the dim text", function()
+			eq(tonumber(theme.mix(palette.bg, palette.fg, 0.08):sub(2), 16), hl("ListCursorLine").bg)
+			eq(tonumber(theme.mix(palette.bg, palette.fg, 0.5):sub(2), 16), hl("ListDim").fg)
+		end)
+
+		it("leaves the background to the terminal", function()
+			eq(nil, hl("Normal").bg)
+			eq(nil, vim.api.nvim_get_hl(0, { name = "Normal" }).bg)
+		end)
+
+		it("gives terminal buffers the terminal's palette", function()
+			eq(true, vim.o.termguicolors)
+			eq(theme.hex(palette[1]), vim.g.terminal_color_1)
+		end)
+
+		it("goes back to palette indexes when the colors are unknown", function()
+			theme.palette = nil
+			vim.o.termguicolors = false
+			highlights.apply()
+			eq(0, hl("ListCursorLine").ctermbg)
+		end)
 	end)
 end)

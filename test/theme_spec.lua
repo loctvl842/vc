@@ -1,0 +1,42 @@
+local theme = require("vc.theme")
+
+describe("theme parse", function()
+	it("reads foreground and background replies of any channel width", function()
+		local key, rgb = theme.parse("\27]11;rgb:2d2d/2a2a/2e2e\27\\")
+		eq("bg", key)
+		eq({ 45, 42, 46 }, rgb)
+		key, rgb = theme.parse("\27]10;rgb:ff/ff/ff\7")
+		eq("fg", key)
+		eq({ 255, 255, 255 }, rgb)
+	end)
+
+	it("reads palette slot replies", function()
+		local key, rgb = theme.parse("\27]4;8;rgb:7272/7070/7272\27\\")
+		eq(8, key)
+		eq({ 114, 112, 114 }, rgb)
+	end)
+
+	it("ignores anything else", function()
+		eq(nil, (theme.parse("\27[?62;c")))
+		eq(nil, (theme.parse("\27]12;rgb:ff/ff/ff\7")))
+	end)
+end)
+
+describe("theme mix", function()
+	it("moves a color part of the way to another", function()
+		eq("#000000", theme.mix({ 0, 0, 0 }, { 255, 255, 255 }, 0))
+		eq("#808080", theme.mix({ 0, 0, 0 }, { 255, 255, 255 }, 0.5))
+		eq("#ffffff", theme.mix({ 0, 0, 0 }, { 255, 255, 255 }, 1))
+	end)
+end)
+
+describe("theme refresh", function()
+	it("calls back at once when there is no terminal", function()
+		local called = false
+		theme.refresh(function()
+			called = true
+		end)
+		truthy(called)
+		eq(false, theme.pending)
+	end)
+end)
