@@ -77,7 +77,7 @@ local function type_query(session, text)
 	vim.api.nvim_buf_set_lines(buf, 0, 1, false, { " " .. text })
 	vim.api.nvim_exec_autocmds("TextChangedI", { buffer = buf })
 	wait(function()
-		return not session.query.matching and session.query.filter.pattern == text
+		return not session.query.matching and session.query.filter.text == text
 	end)
 end
 

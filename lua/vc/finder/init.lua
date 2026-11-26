@@ -81,7 +81,7 @@ end
 
 --- The items follow the rows and the query: "New session" only while the query is empty.
 function Session:_sync_items()
-	local with_new = self.query.filter.pattern == ""
+	local with_new = self.query.filter.text == ""
 	local first = self.query.items[1]
 	local has_new = first ~= nil and first.new == true
 	if has_new ~= with_new or #self.query.items ~= #self.rows + (with_new and 1 or 0) then
@@ -97,7 +97,7 @@ function Session:set_rows(rows)
 	local sel = ui.list.selected(self.view.list)
 	self._keep_id = sel and sel.row and sel.row.id or nil
 	self.rows = rows
-	self.query.items = source.items(rows, self.query.filter.pattern == "")
+	self.query.items = source.items(rows, self.query.filter.text == "")
 	pipeline.load(self.query, self.host, self.query.items)
 end
 
