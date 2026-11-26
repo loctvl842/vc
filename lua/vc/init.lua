@@ -75,6 +75,8 @@ local function set_ui_options()
 	vim.o.showmode = false
 	vim.o.shortmess = vim.o.shortmess .. "I"
 	vim.o.swapfile = false
+	-- Palette colors, so the terminal's own theme paints everything (Neovim would otherwise switch to fixed RGB).
+	vim.o.termguicolors = false
 end
 
 ---@param o? { index?: { root?: string, cache_path?: string } }
