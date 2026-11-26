@@ -83,7 +83,7 @@ describe("finder", function()
 			"Old prototype",
 		}, titles(s))
 		eq(
-			"4 / 4",
+			"4 / 4 ",
 			vim.api.nvim_buf_get_extmarks(
 				s.view.input.buf,
 				vim.api.nvim_create_namespace("vc-finder-input"),
