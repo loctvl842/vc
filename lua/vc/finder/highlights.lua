@@ -86,7 +86,7 @@ function M.apply()
 		Hint = c.dim,
 		PreviewTitle = bold(c.accent),
 		PreviewMeta = c.dim,
-		PreviewPrompt = bold(c.accent),
+		PreviewPrompt = c.dim,
 		PreviewBand = c.select,
 		PreviewDot = bold(c.surface),
 		PreviewToolName = bold(c.surface),

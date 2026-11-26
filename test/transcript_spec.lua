@@ -260,11 +260,18 @@ describe("transcript", function()
 		eq({ "❯ real" }, (T.render(src)))
 	end)
 
-	it("handles array text content and images", function()
+	it("handles array text content and puts a picture under its prompt", function()
 		local src = F.user({ { type = "text", text = "look" }, { type = "image", source = {} } }, "t")
-		local lines = T.render(src)
-		truthy(text_of(lines):find("look", 1, true))
-		truthy(text_of(lines):find("[image]", 1, true))
+		eq({ "❯ look", "  ⎿  [Image]" }, (T.render(src)))
+	end)
+
+	it("names pictures the way the prompt does", function()
+		local src = F.user({
+			{ type = "text", text = "see [Image #5]\n\nand [Image #6]" },
+			{ type = "image", source = {} },
+			{ type = "image", source = {} },
+		}, "t")
+		eq({ "❯ see [Image #5]", "", "  and [Image #6]", "  ⎿  [Image #5]", "  ⎿  [Image #6]" }, (T.render(src)))
 	end)
 
 	it("never truncates a very large conversation", function()

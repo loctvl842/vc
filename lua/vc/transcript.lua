@@ -126,7 +126,7 @@ local function command_block(text)
 end
 
 ---@class VC.Block
----@field kind "prompt"|"reply"|"note"|"thinking"|"call"|"result"|"turn"
+---@field kind "prompt"|"reply"|"note"|"attach"|"thinking"|"call"|"result"|"turn"
 ---@field ms? integer
 ---@field ts? string
 ---@field text? string
@@ -190,11 +190,22 @@ function Builder:feed(line)
 	for _, b in ipairs(content) do
 		results = results + (b.type == "tool_result" and 1 or 0)
 	end
+	-- The prompt names its pictures ("[Image #5]"); the image blocks follow in the same order.
+	local names = {}
+	for _, b in ipairs(content) do
+		if b.type == "text" and type(b.text) == "string" then
+			for n in b.text:gmatch("%[Image #(%d+)%]") do
+				names[#names + 1] = "[Image #" .. n .. "]"
+			end
+		end
+	end
+	local pictures = 0
 	for _, b in ipairs(content) do
 		if b.type == "text" and type(b.text) == "string" and b.text ~= "" then
 			self:push(kind == "prompt" and command_block(b.text) or { kind = kind, text = b.text })
 		elseif b.type == "image" then
-			self:push({ kind = kind, text = "[image]" })
+			pictures = pictures + 1
+			self:push({ kind = "attach", text = names[pictures] or "[Image]" })
 		elseif b.type == "thinking" and type(b.thinking) == "string" and b.thinking:find("%S") then
 			self:push({ kind = "thinking", text = b.thinking })
 		elseif b.type == "tool_use" or b.type == "server_tool_use" then
@@ -293,7 +304,9 @@ end
 ---@param b VC.Block
 function Builder:render_block(b)
 	local out = self.out
-	out:gap()
+	if b.kind ~= "attach" then
+		out:gap() -- a picture hangs directly under the prompt it came with
+	end
 	if b.kind == "prompt" or b.kind == "reply" then
 		if b.kind == "prompt" then
 			local first = out:message(PROMPT, toolline.split(b.text), nil, { line_hl = "Band" })
@@ -302,6 +315,8 @@ function Builder:render_block(b)
 			local first = out:message(REPLY, markdown.render(b.text))
 			out:mark(first, 0, #REPLY - 1, "Dot")
 		end
+	elseif b.kind == "attach" then
+		out:whole(out:add(RESULT_FIRST .. b.text), "Result")
 	elseif b.kind == "note" then
 		local first = out:message(REPLY, toolline.split(b.text))
 		out:mark(first, 0, #REPLY - 1, "Dot")
