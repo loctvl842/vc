@@ -52,8 +52,10 @@ function M.location(row)
 end
 
 --- Items for a list of session rows (newest first), "New session" in front when `with_new`.
---- The search text is the title, the location and the recap (when there is one), in that order;
---- the recap matches only as a substring (see `fuzzy_len`). `recap_at` is where it starts.
+--- The search text is the title, the location, the recap and the last message (the last two when the session
+--- has them), in that order. The title and location match fuzzily; the recap and last message only as a
+--- substring (see `fuzzy_len`), since scattered letters match nearly any query in a paragraph.
+--- `recap_at` and `prompt_at` are where those two start.
 ---@param rows VC.Row[]
 ---@param with_new boolean
 ---@return VC.Finder.Item[]
@@ -65,10 +67,17 @@ function M.items(rows, with_new)
 	end
 	for _, row in ipairs(rows) do
 		local text = row.title .. "  " .. M.location(row)
-		local item = { idx = #items + 1, score = 1, row = row, fuzzy_len = row.recap and #text }
+		local item = { idx = #items + 1, score = 1, row = row }
+		if row.recap or row.last_prompt then
+			item.fuzzy_len = #text
+		end
 		if row.recap then
 			item.recap_at = #text + 3
 			text = text .. "  " .. row.recap
+		end
+		if row.last_prompt then
+			item.prompt_at = #text + 3
+			text = text .. "  " .. row.last_prompt
 		end
 		item.text = text
 		items[#items + 1] = item
@@ -124,17 +133,27 @@ end
 ---@field kept integer[] bytes of each shown span that are drawn as they are
 ---@field first integer buffer row of the first shown line
 
---- The rows of one message: its label, then its text wrapped to `text_w` columns, `limit` lines at most.
+--- The rows of one message: its label, then its text wrapped to `text_w` columns, `limit` lines at most -
+--- except that the lines run on far enough to show the first match (`hit`, a byte of the text) of a query.
 ---@param kind "recap"|"prompt"
 ---@param text string
 ---@param text_w integer
 ---@param limit? integer
+---@param hit? integer
 ---@return VC.Finder.Chunk[][] rows
 ---@return VC.Finder.Span[] spans
 ---@return integer[] kept
-local function message_rows(kind, text, text_w, limit)
+local function message_rows(kind, text, text_w, limit, hit)
 	local spans = wrap.lines(text, text_w)
 	local shown = limit and math.min(#spans, limit) or #spans
+	if hit then
+		for i, sp in ipairs(spans) do
+			if hit >= sp.s and hit <= sp.e then
+				shown = math.max(shown, i)
+				break
+			end
+		end
+	end
 	local rows, kept = {}, {}
 	local hl = kind == "recap" and "VCFinderListRecap" or "VCFinderListPrompt"
 	for i = 1, shown do
@@ -156,6 +175,21 @@ local function message_rows(kind, text, text_w, limit)
 end
 
 --- Match highlights that fall inside a message, one range per matched byte.
+--- The first match of a query inside a message: its byte in the message, or nil.
+---@param positions integer[]
+---@param at integer where the message starts in `item.text`
+---@param len integer
+---@return integer?
+local function first_hit(positions, at, len)
+	local first
+	for _, p in ipairs(positions) do
+		if p >= at and p < at + len and (not first or p < first) then
+			first = p
+		end
+	end
+	return first and first - at + 1
+end
+
 ---@param ranges VC.Finder.Range[]
 ---@param positions integer[]
 ---@param m VC.Finder.Message
@@ -239,10 +273,12 @@ function M.format(item, width, opts)
 	local text_w = math.max(10, width - GUTTER - #INDENT - LABEL_COLS)
 	local limit = not opts.selected and FOLD or nil
 	local messages = {} ---@type VC.Finder.Message[]
+	local positions = item.positions or {}
 	for _, f in ipairs({ { "recap", row.recap, item.recap_at }, { "prompt", row.last_prompt, item.prompt_at } }) do
 		local kind, text, at = f[1], f[2], f[3]
 		if text then
-			local rows, spans, kept = message_rows(kind, text, text_w, limit)
+			local hit = limit and at and first_hit(positions, at, #text)
+			local rows, spans, kept = message_rows(kind, text, text_w, limit, hit)
 			messages[#messages + 1] =
 				{ at = at, len = #text, spans = spans, rows = rows, kept = kept, first = #lines + 1 }
 			vim.list_extend(lines, rows)
@@ -252,7 +288,6 @@ function M.format(item, width, opts)
 
 	-- `item.positions` index `item.text` (title, location, messages); map each onto the row that shows it.
 	local ranges = {}
-	local positions = item.positions or {}
 	local title_len, loc_start = #row.title, #row.title + 2
 	local cut = #location - loc_kept -- bytes of the location hidden behind the leading "…"
 	for _, p in ipairs(positions) do

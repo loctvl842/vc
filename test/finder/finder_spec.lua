@@ -278,6 +278,54 @@ describe("finder", function()
 		s:close()
 	end)
 
+	it("searches the last message and highlights the match, past the fold", function()
+		local s = open()
+		type_query(s, "'thursday")
+		eq({ "Draft Q4 roadmap outline" }, titles(s))
+		local item = s.query.matched[1]
+		-- "Thursday" is far beyond the third line of the message, yet an unselected session shows it
+		local lines, ranges = source.format(item, 50, { selected = false })
+		local rows = texts(lines)
+		eq(1, #ranges)
+		eq("Thursday", rows[ranges[1].row]:sub(ranges[1].s + 1, ranges[1].e))
+		truthy(#rows > 8, "the message runs on to the match")
+		-- and without a match the same session folds to 3 lines
+		eq(8, #texts((source.format(item_of(ROWS[2]), 50, { selected = false }))))
+		s:close()
+	end)
+
+	it("matches a word of the recap or of the last message from any session", function()
+		local s = open()
+		type_query(s, "'polling")
+		eq({ "Fix flaky login test" }, titles(s))
+		type_query(s, "'DANA") -- a capital makes it case sensitive
+		eq({}, titles(s))
+		type_query(s, "'dana")
+		eq({ "Draft Q4 roadmap outline" }, titles(s))
+		s:close()
+	end)
+
+	it("does not match scattered letters inside the last message", function()
+		local s = open()
+		type_query(s, "pllng") -- p, l, l, n, g appear in order in "replace the wait with polling"
+		eq({}, titles(s))
+		s:close()
+	end)
+
+	it("highlights each typed word where it appears, in the title and in the message", function()
+		local s = open()
+		type_query(s, "flaky 'polling")
+		eq({ "Fix flaky login test" }, titles(s))
+		local lines, ranges = source.format(s.query.matched[1], 60, { selected = true })
+		local rows = texts(lines)
+		local found = {}
+		for _, r in ipairs(ranges) do
+			found[#found + 1] = rows[r.row]:sub(r.s + 1, r.e)
+		end
+		eq({ "flaky", "polling" }, found)
+		s:close()
+	end)
+
 	it("keeps the end of a long location and maps match highlights onto it", function()
 		local r = row("z", "Deploy", "very-long-project-name", 60)
 		r.cwd = "/Users/someone/work/clients/acme/services/very-long-project-name"
