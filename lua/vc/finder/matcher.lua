@@ -157,10 +157,10 @@ end
 ---@param prefix boolean
 ---@param suffix boolean
 ---@param exact boolean
----@param fuzzy_len? integer only the first `fuzzy_len` bytes match fuzzily; the rest matches as a plain substring
+---@param plain? boolean match as a plain substring only (long prose, where scattered letters match nearly any query)
 ---@return number score
 ---@return integer[]? positions
-local function score_term(hay, hay_orig, needle, prefix, suffix, exact, fuzzy_len)
+local function score_term(hay, hay_orig, needle, prefix, suffix, exact, plain)
 	local hlen = #hay
 	local nlen = #needle
 
@@ -168,7 +168,7 @@ local function score_term(hay, hay_orig, needle, prefix, suffix, exact, fuzzy_le
 	if nlen == 0 or nlen > hlen then return 0, nil end
 
 	-- Exact / prefix / suffix: plain substring match
-	if exact or prefix or suffix then
+	if exact or prefix or suffix or plain then
 		local idx = hay:find(needle, 1, true)
 		-- stylua: ignore
 		if not idx then return 0, nil end
@@ -183,22 +183,6 @@ local function score_term(hay, hay_orig, needle, prefix, suffix, exact, fuzzy_le
 			pos[#pos + 1] = i
 		end
 		return s, pos
-	end
-
-	-- Text past `fuzzy_len` (a recap) is long prose, where scattered letters match nearly any query.
-	if fuzzy_len and fuzzy_len < hlen then
-		local s, pos = score_term(hay:sub(1, fuzzy_len), hay_orig:sub(1, fuzzy_len), needle, false, false, false)
-		if s > 0 then
-			return s, pos
-		end
-		local idx = hay:find(needle, fuzzy_len + 1, true)
-		-- stylua: ignore
-		if not idx then return 0, nil end
-		pos = {}
-		for i = idx, idx + nlen - 1 do
-			pos[#pos + 1] = i
-		end
-		return math.max(scorer:get(hay_orig, idx, idx + nlen - 1), 1), pos
 	end
 
 	-- Fuzzy: multi-start scan — try every valid start position, keep best
@@ -246,21 +230,15 @@ local function score_term(hay, hay_orig, needle, prefix, suffix, exact, fuzzy_le
 	local positions = fuzzy_positions(hay, needle, best_from)
 	return best_score, positions
 end
----@param item VC.Finder.Item
+--- Score `hay` (a field, or the whole text) against every AND-group: each group needs one of its terms to match.
+---@param hay_orig string
+---@param hay_lower string
 ---@param and_groups VC.Finder.Term[][]
----@return number score 0 = excluded
----@return integer[]? positions 1-based byte indices into item.text
-local function score_item(item, and_groups)
-	if #and_groups == 0 then
-		return 1, nil
-	end
-	local hay_orig = item.text or ""
-	-- Cache lowered text to avoid re-allocation on subsequent match cycles
-	local hay_lower = item._lower
-	if not hay_lower then
-		hay_lower = hay_orig:lower()
-		item._lower = hay_lower
-	end
+---@param plain boolean the field matches as a plain substring only
+---@param base integer byte offset of `hay` inside `item.text`, added to the positions
+---@return number score 0 = no match
+---@return integer[]? positions
+local function score_text(hay_orig, hay_lower, and_groups, plain, base)
 	local total = 0
 	local all_positions = {}
 	for _, or_terms in ipairs(and_groups) do
@@ -269,7 +247,7 @@ local function score_item(item, and_groups)
 		local any_match = false
 		for _, term in ipairs(or_terms) do
 			local hay = term.ignorecase and hay_lower or hay_orig
-			local s, pos = score_term(hay, hay_orig, term.text, term.prefix, term.suffix, term.exact, item.fuzzy_len)
+			local s, pos = score_term(hay, hay_orig, term.text, term.prefix, term.suffix, term.exact, plain)
 			if term.inverse then
 				if s == 0 then
 					best = math.max(best, 1)
@@ -290,10 +268,46 @@ local function score_item(item, and_groups)
 		end
 		if best_pos then
 			for _, p in ipairs(best_pos) do
-				all_positions[#all_positions + 1] = p
+				all_positions[#all_positions + 1] = p + base
 			end
 		end
 		total = total + best
+	end
+	return total, all_positions
+end
+
+--- An item with `fields` matches when the whole query matches inside any one field; its score is the sum over
+--- the fields that match. Without `fields`, the query is matched against `item.text` as one string.
+---@param item VC.Finder.Item
+---@param and_groups VC.Finder.Term[][]
+---@return number score 0 = excluded
+---@return integer[]? positions 1-based byte indices into item.text
+local function score_item(item, and_groups)
+	if #and_groups == 0 then
+		return 1, nil
+	end
+	local hay_orig = item.text or ""
+	-- Cache lowered text to avoid re-allocation on subsequent match cycles
+	local hay_lower = item._lower
+	if not hay_lower then
+		hay_lower = hay_orig:lower()
+		item._lower = hay_lower
+	end
+	if not item.fields then
+		return score_text(hay_orig, hay_lower, and_groups, false, 0)
+	end
+	local total = 0
+	local all_positions = {}
+	for _, f in ipairs(item.fields) do
+		local s, pos =
+			score_text(hay_orig:sub(f.from, f.to), hay_lower:sub(f.from, f.to), and_groups, f.plain, f.from - 1)
+		if s > 0 then
+			total = total + s
+			vim.list_extend(all_positions, pos)
+		end
+	end
+	if total == 0 then
+		return 0, nil
 	end
 	return total, all_positions
 end
