@@ -370,4 +370,18 @@ describe("transcript", function()
 		local _, folds = T.render(src)
 		eq({}, folds)
 	end)
+
+	it("keeps the chevron when a prompt starts with a blank line, so its mark fits the line", function()
+		local src = table.concat({
+			F.user("\nafter a blank line", "t"),
+			F.assistant({ { type = "text", text = "ok" } }, "t"),
+		}, "\n")
+		local lines, _, marks = T.render(src)
+		eq("❯ ", lines[1])
+		for _, m in ipairs(marks) do
+			if m.c then
+				truthy(m.e <= #lines[m.l], m.hl .. " ends past line " .. m.l)
+			end
+		end
+	end)
 end)

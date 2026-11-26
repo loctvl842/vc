@@ -88,7 +88,8 @@ function Out:message(marker, lines, marks, opts)
 	for i, text in ipairs(lines) do
 		local prefix = i == 1 and marker or indent
 		shift[i] = #prefix
-		local l = self:add(text == "" and "" or (prefix .. text))
+		-- The marker stays even when the first line is empty: the marks that cover it need its bytes.
+		local l = self:add((text == "" and i > 1) and "" or (prefix .. text))
 		if opts and opts.line_hl then
 			self:whole(l, opts.line_hl)
 		end
