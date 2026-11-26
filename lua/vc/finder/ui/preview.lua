@@ -18,7 +18,7 @@ local CACHE_SIZE = 4
 
 ---@type table<integer, { level: table<integer, string>, label: table<integer, string> }> fold data per buffer
 local fold_data = {}
----@type { id: string, lines: string[], folds: VC.Fold[] }[] most recently shown first
+---@type { id: string, lines: string[], folds: VC.Fold[] }[] most recently shown first; `id` includes size and mtime so a resumed session is read again
 local cache = {}
 
 --- 'foldexpr' of the preview: folds come from the transcript's fold map.
@@ -62,6 +62,13 @@ function M.create(geo)
 	View.wo(win, "foldenable", true)
 	View.wo(win, "foldcolumn", "0")
 	View.wo(win, "fillchars", "fold: ,eob: ")
+	vim.api.nvim_create_autocmd("BufWipeout", {
+		buffer = buf,
+		once = true,
+		callback = function()
+			fold_data[buf] = nil
+		end,
+	})
 	return PreviewView(buf, win, ns)
 end
 
@@ -154,12 +161,13 @@ end
 ---@param view VC.Finder.PreviewView
 ---@param row VC.Row
 function M.show(view, row)
+	local key = row.id .. ":" .. row.size .. ":" .. row.mtime
 	-- stylua: ignore
-	if not view:is_valid() or view.shown == row.id then return end
+	if not view:is_valid() or view.shown == key then return end
 	cancel(view)
-	view.shown = row.id
+	view.shown = key
 	set_title(view, row.title)
-	local hit = cache_get(row.id)
+	local hit = cache_get(key)
 	if hit then
 		set_content(view, hit.lines, hit.folds)
 		return
@@ -167,9 +175,9 @@ function M.show(view, row)
 	set_content(view, { "Loading..." }, {})
 	view._cancel = transcript.render_file(row.path, row, function(lines, folds)
 		view._cancel = nil
-		table.insert(cache, 1, { id = row.id, lines = lines, folds = folds })
+		table.insert(cache, 1, { id = key, lines = lines, folds = folds })
 		cache[CACHE_SIZE + 1] = nil
-		if view.shown == row.id then
+		if view.shown == key then
 			set_content(view, lines, folds)
 		end
 	end)

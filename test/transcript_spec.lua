@@ -89,4 +89,13 @@ describe("transcript", function()
 		eq("/x - 1500 messages", got[1][2])
 		eq("q1500", got[1][#got[1]])
 	end)
+
+	it("does not fold empty thinking blocks", function()
+		local src = table.concat({
+			F.user("go", "t"),
+			F.assistant({ { type = "thinking", thinking = "  " }, { type = "text", text = "ok" } }, "t"),
+		}, "\n")
+		local _, folds = T.render(src)
+		eq({}, folds)
+	end)
 end)

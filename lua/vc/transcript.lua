@@ -127,7 +127,7 @@ function Builder:feed(line)
 			self:_say(role, b.text)
 		elseif b.type == "image" then
 			self:_say(role, "[image]")
-		elseif b.type == "thinking" and type(b.thinking) == "string" then
+		elseif b.type == "thinking" and type(b.thinking) == "string" and b.thinking:find("%S") then
 			local run = self:_open_run()
 			run.thinking = run.thinking + 1
 			self.lines[#self.lines + 1] = "thinking:"
