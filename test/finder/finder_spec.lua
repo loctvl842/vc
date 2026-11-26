@@ -776,5 +776,68 @@ describe("finder", function()
 			eq({}, marked())
 			s:close()
 		end)
+		it("finds a session by its branch or PR number, and never by an ordinary word", function()
+			local s = open()
+			local r80 = vim.tbl_extend("force", ROWS[3], { id = "p80", branch = "feature/sso", pr = 80 })
+			s:set_rows({ ROWS[1], ROWS[2], r80 })
+			type_query(s, "branch:ma")
+			eq({ "Fix flaky login test" }, titles(s))
+			type_query(s, "branch:a") -- the sessions with no branch never match
+			eq({ "Fix flaky login test", "Add SSO login to admin panel" }, titles(s))
+			type_query(s, "pr:8")
+			eq({ "Fix flaky login test" }, titles(s)) -- not #80
+			type_query(s, "pr:#80")
+			eq({ "Add SSO login to admin panel" }, titles(s))
+			type_query(s, "'main") -- as an ordinary word it is no branch search
+			eq({}, titles(s))
+			type_query(s, "'feature")
+			eq({}, titles(s))
+			s:close()
+		end)
+
+		it("highlights the matched letters of the branch and the PR on the folder row", function()
+			local s = open()
+			local function found(query)
+				type_query(s, query)
+				local lines, ranges = source.format(s.query.matched[1], 60, { selected = true })
+				local rows = texts(lines)
+				local out = {}
+				for _, r in ipairs(ranges) do
+					out[#out + 1] = rows[r.row]:sub(r.s + 1, r.e)
+				end
+				return out
+			end
+			eq({ "ma" }, found("branch:ma"))
+			eq({ "8" }, found("pr:8"))
+			s:close()
+		end)
+
+		it("highlights only the part of a branch that is shown, and the PR beside a cut or hidden branch", function()
+			local s = open()
+			local long =
+				vim.tbl_extend("force", ROWS[1], { branch = "feature/a-very-long-branch-name-indeed", pr = 77 })
+			s:set_rows({ long })
+			local function found(query, width)
+				type_query(s, query)
+				local lines, ranges = source.format(s.query.matched[1], width, { selected = true })
+				local rows = texts(lines)
+				local out = {}
+				for _, r in ipairs(ranges) do
+					out[#out + 1] = rows[r.row]:sub(r.s + 1, r.e)
+				end
+				return out
+			end
+			eq({ "very" }, found("branch:very", 60)) -- "feature/a-very-long-…" is shown
+			eq({}, found("branch:indeed", 60)) -- that part is cut off
+			eq({ "77" }, found("pr:77", 60)) -- after the cut branch
+			eq({ "77" }, found("pr:77", 34)) -- the branch is hidden altogether
+			eq({}, found("branch:very", 34))
+			eq(1, #s.query.matched)
+			type_query(s, "pr:#")
+			eq(1, #s.query.matched) -- no number: nothing narrowed
+			type_query(s, "pr:7|9") -- an operator is no OR in a number
+			eq({}, titles(s))
+			s:close()
+		end)
 	end)
 end)
