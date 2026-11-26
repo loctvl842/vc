@@ -53,6 +53,23 @@ function M.mount(session)
 		end,
 	})
 
+	-- Closing any pane (e.g. `:q` in the preview) leaves the finder, like Esc does.
+	for _, v in pairs(session.view) do
+		vim.api.nvim_create_autocmd("WinClosed", {
+			group = group,
+			pattern = tostring(v.win),
+			once = true,
+			callback = function()
+				vim.schedule(function()
+					if not session.closed then
+						session:close()
+						vim.schedule(session.on_exit)
+					end
+				end)
+			end,
+		})
+	end
+
 	-- The finder is the home screen: focus that wanders outside it comes back to the prompt.
 	vim.api.nvim_create_autocmd("WinEnter", {
 		group = group,
