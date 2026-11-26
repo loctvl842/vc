@@ -21,6 +21,8 @@ local fold_data = {}
 ---@type { id: string, lines: string[], folds: VC.Fold[], marks: VC.Mark[] }[] most recently shown first; `id` includes size and mtime so a resumed session is read again
 local cache = {}
 
+local FOLDTEXT = "v:lua.require'vc.finder.ui.preview'.foldtext()"
+
 --- 'foldexpr' of the preview: folds come from the transcript's fold map.
 ---@return string
 function M.foldexpr()
@@ -28,11 +30,17 @@ function M.foldexpr()
 	return d and d.level[vim.v.lnum] or "0"
 end
 
---- 'foldtext' of the preview: the fold's label, which already says what is tucked away.
----@return string
+--- 'foldtext' of the preview: the fold's label, which already says what is tucked away. It brightens
+--- while the cursor is on the fold, so the reader can tell where a fold is.
+---@return string|table
 function M.foldtext()
 	local d = fold_data[vim.api.nvim_get_current_buf()]
-	return d and d.label[vim.v.foldstart] or ("… +" .. (vim.v.foldend - vim.v.foldstart + 1) .. " lines")
+	local label = d and d.label[vim.v.foldstart] or ("… +" .. (vim.v.foldend - vim.v.foldstart + 1) .. " lines")
+	local cursor = vim.api.nvim_win_get_cursor(0)[1]
+	if cursor >= vim.v.foldstart and cursor <= vim.v.foldend then
+		return { { label, "VCFinderPreviewFoldHover" } }
+	end
+	return label
 end
 
 ---@param geo VC.Finder.Layout.Geometry
@@ -65,11 +73,24 @@ function M.create(geo)
 	View.wo(win, "number", false)
 	View.wo(win, "foldmethod", "expr")
 	View.wo(win, "foldexpr", "v:lua.require'vc.finder.ui.preview'.foldexpr()")
-	View.wo(win, "foldtext", "v:lua.require'vc.finder.ui.preview'.foldtext()")
+	View.wo(win, "foldtext", FOLDTEXT)
 	View.wo(win, "foldlevel", 0)
 	View.wo(win, "foldenable", true)
 	View.wo(win, "foldcolumn", "0")
 	View.wo(win, "fillchars", "fold: ,eob: ")
+	-- Neovim keeps a fold's text until the fold changes, so it does not notice the cursor arriving on or
+	-- leaving it; setting 'foldtext' again makes it ask once more.
+	local on_fold = false
+	vim.api.nvim_create_autocmd("CursorMoved", {
+		buffer = buf,
+		callback = function()
+			local now = vim.fn.foldclosed(vim.fn.line(".")) ~= -1
+			if now or on_fold then
+				View.wo(win, "foldtext", FOLDTEXT)
+			end
+			on_fold = now
+		end,
+	})
 	vim.api.nvim_create_autocmd("BufWipeout", {
 		buffer = buf,
 		once = true,

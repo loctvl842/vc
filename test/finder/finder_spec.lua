@@ -568,6 +568,12 @@ describe("finder", function()
 			local call = vim.fn.index(lines, "● Bash(ls)") + 1
 			eq(call, vim.fn.foldclosed(call)) -- the run of calls is one line
 			eq("  Ran 1 shell command", vim.fn.foldtextresult(call))
+			-- the cursor on a fold brightens its label; elsewhere it keeps the dim fold group
+			vim.v.foldstart, vim.v.foldend = call, call + 1
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			eq("string", type(ui.preview.foldtext()))
+			vim.api.nvim_win_set_cursor(0, { call, 0 })
+			eq("VCFinderPreviewFoldHover", ui.preview.foldtext()[1][2])
 			vim.cmd(call .. "foldopen")
 			eq(-1, vim.fn.foldclosed(call))
 			eq(at, vim.fn.foldclosed(at)) -- the long result inside it is still folded

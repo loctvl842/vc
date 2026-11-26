@@ -17,6 +17,7 @@ local function colors()
 		local light = vim.o.background == "light"
 		return {
 			surface = { ctermfg = NONE, ctermbg = NONE },
+			text = { ctermfg = light and 0 or 15 },
 			dim = { ctermfg = 8 },
 			border = { ctermfg = 8, ctermbg = NONE },
 			accent = { ctermfg = YELLOW },
@@ -39,6 +40,7 @@ local function colors()
 	end
 	return {
 		surface = { fg = NONE, bg = NONE },
+		text = { fg = theme.hex(p.fg) },
 		dim = { fg = theme.mix(p.bg, p.fg, 0.5) },
 		border = { fg = theme.mix(p.bg, p.fg, 0.3), bg = NONE },
 		accent = slot(YELLOW),
@@ -95,6 +97,7 @@ function M.apply()
 		PreviewError = c.red,
 		PreviewThinking = vim.tbl_extend("force", c.dim, { italic = true }),
 		PreviewFold = c.dim,
+		PreviewFoldHover = c.text,
 		PreviewBold = { bold = true },
 		PreviewItalic = { italic = true },
 		PreviewStrike = { strikethrough = true },
