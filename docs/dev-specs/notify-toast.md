@@ -106,14 +106,26 @@ Every message is a boxed card in the top right (`vc.notify`). Routine INFO messa
 - Manual: PM scenarios 1-7 via `NVIM_APPNAME=VimClaude nvim` in tmux; compare screen captures for the bottom-right line, `x3` merge, ellipsis at 40 columns, WARN card.
 
 # Success Criteria
-- [ ] An information message is one dim line at the bottom right, no box.
-- [ ] A warning or error is a card at the top right, as before.
-- [ ] Five identical information messages in a row show one line with "x5".
-- [ ] Multi-line messages show on one line; long ones end with an ellipsis.
-- [ ] Colored icon at the right end; follows the terminal palette in light and dark.
-- [ ] Toasts fade in and out and the stack closes gaps.
-- [ ] Typing continues uninterrupted while toasts are visible.
-- [ ] A 40-column terminal shows a readable, shortened toast.
-- [ ] A background message shows as a toast with no error.
-- [ ] "Press ENTER or type command to continue" still never appears.
-- [ ] `make test` and `make lint` pass.
+- [x] An information message is one dim line at the bottom right, no box.
+- [x] A warning or error is a card at the top right, as before.
+- [x] Five identical information messages in a row show one line with "x5".
+- [x] Multi-line messages show on one line; long ones end with an ellipsis.
+- [x] Colored icon at the right end; follows the terminal palette in light and dark.
+- [x] Toasts fade in and out and the stack closes gaps.
+- [x] Typing continues uninterrupted while toasts are visible.
+- [x] A 40-column terminal shows a readable, shortened toast.
+- [x] A background message shows as a toast with no error.
+- [x] "Press ENTER or type command to continue" still never appears.
+- [x] `make test` and `make lint` pass.
+
+---
+
+## Completed
+
+2026-11-27. Phase 1: `vc.toast` copied from BeastVim (no progress), stack cap and resize relayout, toast colors in the shared notify highlights. Phase 2: `vc.notify.notify` sends INFO to the toast, WARN and ERROR stay cards. Phase 3: real-terminal run, codemap.
+
+- `8deda2e` feat(toast): add the one-line toast stack copied from BeastVim (the copied callable now schedules itself in a fast event, since building a record uses `vim.fn`)
+- `ac2ce4b` feat(notify): show INFO as a toast, keep WARN and ERROR as cards
+- `b3122a3` docs: update codemap for toast
+
+Verification: `make test` 214 passed, 0 failed; `make lint` clean. Real terminal (tmux, `NVIM_APPNAME=VimClaude`): a failed search showed a WARN card top right; three identical INFO messages showed one toast "hello from toast x3" and a different message stacked below it; the nerd-font icon is in the line; the toast survived `show_finder`'s window reset and expired on time; at 40 columns a long message was cut to "This is a very long m…" and a WARN card fit.
