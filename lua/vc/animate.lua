@@ -81,7 +81,7 @@ M.easings = {
 -- =============================================================================
 
 ---Generic frame-loop tween. Calls `on_frame(t, frame, total_frames)` each tick
----with `t` in [0,1] (raw linear progress — caller applies easing per axis).
+---with `t` in [0,1] (raw linear progress - caller applies easing per axis).
 ---Return `false` from `on_frame` to abort the tween (e.g. target became invalid);
 ---`on_done` still fires once.
 ---@param duration integer Total duration in ms.

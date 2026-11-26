@@ -1,11 +1,13 @@
---- Highlight groups for the notification cards, built from the terminal's colors like the finder's: tints
---- blended from the real palette when `vc.theme` knows it, the 16-color palette indexes otherwise.
+--- Highlight groups for the notification cards (`VCNotify*`) and the toasts (`VCToast*`), built from the
+--- terminal's colors like the finder's: tints blended from the real palette when `vc.theme` knows it, the
+--- 16-color palette indexes otherwise.
 local theme = require("vc.theme")
 
 local M = {}
 
 -- ANSI slots by role.
 local RED, YELLOW, BLUE, CYAN = 1, 3, 4, 6
+local NONE = "NONE"
 
 --- Highlight attributes per group, in RGB when the terminal's colors are known, else palette indexes.
 local function groups()
@@ -14,6 +16,14 @@ local function groups()
 		local light = vim.o.background == "light"
 		local card = { ctermbg = light and 7 or 0 }
 		return {
+			ToastNormal = { ctermfg = NONE, ctermbg = NONE },
+			ToastBody = { ctermfg = 8 },
+			ToastTitleERROR = { ctermfg = RED },
+			ToastTitleWARN = { ctermfg = YELLOW },
+			ToastTitleINFO = { ctermfg = BLUE },
+			ToastTitleDEBUG = { ctermfg = CYAN },
+			ToastTitleTRACE = { ctermfg = 8 },
+			ToastCount = { ctermfg = YELLOW, bold = true },
 			Normal = card,
 			-- The border glyphs are half blocks drawn in the page color over the card color.
 			Border = { ctermfg = light and 15 or 0, ctermbg = card.ctermbg },
@@ -28,7 +38,18 @@ local function groups()
 	local function level(slot)
 		return { fg = theme.hex(p[slot]), bg = card, bold = true }
 	end
+	local function color(slot)
+		return { fg = theme.hex(p[slot]) }
+	end
 	return {
+		ToastNormal = { fg = NONE, bg = NONE },
+		ToastBody = { fg = theme.mix(p.bg, p.fg, 0.5) },
+		ToastTitleERROR = color(RED),
+		ToastTitleWARN = color(YELLOW),
+		ToastTitleINFO = color(BLUE),
+		ToastTitleDEBUG = color(CYAN),
+		ToastTitleTRACE = { fg = theme.mix(p.bg, p.fg, 0.5) },
+		ToastCount = { fg = theme.hex(p[YELLOW]), bold = true },
 		Normal = { fg = theme.mix(p.bg, p.fg, 0.75), bg = card },
 		Border = { fg = theme.hex(p.bg), bg = card },
 		ERROR = level(RED),
@@ -43,7 +64,8 @@ end
 function M.apply()
 	theme.activate()
 	for name, spec in pairs(groups()) do
-		vim.api.nvim_set_hl(0, "VCNotify" .. name, spec)
+		-- `Toast*` keys are toast groups; the rest belong to the cards.
+		vim.api.nvim_set_hl(0, (name:find("^Toast") and "VC" or "VCNotify") .. name, spec)
 	end
 end
 
