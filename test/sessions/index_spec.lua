@@ -75,4 +75,24 @@ describe("index", function()
 		load(store, tmpdir() .. "/idx.json")
 		eq(before, snapshot(store.root))
 	end)
+
+	it("rescans many new files in batches and delivers every row", function()
+		local store = F.store()
+		for i = 1, 400 do
+			write_file(
+				store.proj .. ("bulk%d.jsonl"):format(i),
+				{ F.user("bulk " .. i, "2026-10-01T00:00:00.000Z", store.alive) }
+			)
+		end
+		local done = false
+		index.load({ root = store.root, cache_path = tmpdir() .. "/idx.json" }, function(rows, d)
+			if d then
+				done = true
+				eq(404, #rows)
+			end
+		end)
+		wait(function()
+			return done
+		end, 10000)
+	end)
 end)

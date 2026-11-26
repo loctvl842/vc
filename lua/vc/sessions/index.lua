@@ -5,6 +5,7 @@ local cache = require("vc.sessions.cache")
 local M = {}
 
 local BATCH = 8 -- files rescanned per event-loop turn
+local PARTIAL_MS = 150 -- while rescanning, show what is known at most this often
 
 ---@return string
 function M.default_root()
@@ -85,6 +86,7 @@ function M.load(opts, on_rows)
 	end
 
 	local i = 1
+	local last_emit = vim.uv.hrtime()
 	local function step()
 		local stop = math.min(i + BATCH - 1, #todo)
 		for j = i, stop do
@@ -95,6 +97,10 @@ function M.load(opts, on_rows)
 		end
 		i = stop + 1
 		if i <= #todo then
+			if (vim.uv.hrtime() - last_emit) / 1e6 > PARTIAL_MS then
+				last_emit = vim.uv.hrtime()
+				on_rows(sorted(rows), false)
+			end
 			vim.schedule(step)
 			return
 		end
