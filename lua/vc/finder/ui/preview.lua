@@ -68,7 +68,11 @@ end
 ---@param view VC.Finder.PreviewView
 ---@param title string
 local function set_title(view, title)
-	pcall(vim.api.nvim_win_set_config, view.win, { title = " " .. title .. " ", title_pos = "center" })
+	pcall(
+		vim.api.nvim_win_set_config,
+		view.win,
+		{ title = title ~= "" and (" " .. title .. " ") or "", title_pos = "center" }
+	)
 end
 
 ---@param view VC.Finder.PreviewView
