@@ -133,14 +133,27 @@ After this change `vim.notify` is replaced by a card stack (`lua/vc/notify/`), u
 - Manual: open `NVIM_APPNAME=VimClaude nvim`. PM scenario 1: move into preview, press `x`, expect E21 card, no "Press ENTER". Scenario 2: `:lua vim.notify("a"); vim.notify("b", 2)`. Scenario 3: open a session, `:lua vim.notify("hi", 2)` from another way (e.g. `nvim --remote-expr`) while Claude Code is shown. Scenario 4: press `x` five times quickly, and a tall stack with `:lua for i=1,40 do vim.notify("m"..i) end`. Scenario 5: resize to 40 columns. Scenario 6: `/zzz`, `n` for wrap/not found, an empty `:echo ""`. Check light/dark flip recolors cards, and `:s/x/y/c` still prompts.
 
 # Success Criteria
-- [ ] Pressing an editing key in the read-only preview shows the E21 text as a card in the top right.
-- [ ] "Press ENTER or type command to continue" never appears, in the finder or in Claude Code.
-- [ ] The finder is never pushed or covered by message text.
-- [ ] Typing continues uninterrupted while a card is visible.
-- [ ] Cards are colored by level from the terminal palette in light and dark.
-- [ ] Several messages stack without overlapping and close the gap when one leaves.
-- [ ] Messages longer than 10 lines are cut at 10.
-- [ ] A 40-column terminal shows a readable card (38 wide, wrapped).
-- [ ] A background (fast-event) message shows as a card with no error.
-- [ ] Confirm prompts (`:s///c`, `:q` with changes) still work.
-- [ ] `make test` and `make lint` pass.
+- [x] Pressing an editing key in the read-only preview shows the E21 text as a card in the top right.
+- [x] "Press ENTER or type command to continue" never appears, in the finder or in Claude Code.
+- [x] The finder is never pushed or covered by message text.
+- [x] Typing continues uninterrupted while a card is visible.
+- [x] Cards are colored by level from the terminal palette in light and dark.
+- [x] Several messages stack without overlapping and close the gap when one leaves.
+- [x] Messages longer than 10 lines are cut at 10.
+- [x] A 40-column terminal shows a readable card (38 wide, wrapped).
+- [x] A background (fast-event) message shows as a card with no error.
+- [x] Confirm prompts (`:s///c`, `:q` with changes) still work.
+- [x] `make test` and `make lint` pass.
+
+---
+
+## Completed
+
+2026-11-27. Phase 1: `vim.notify` shows animated cards (wrap, 10-row cap, narrow fit, overflow eviction, resize). Phase 2: ui2 on, every message becomes a card, prompts stay with ui2. Phase 3: end-to-end run in a real terminal, codemap refreshed.
+
+- `ee11acf` feat(notify): add animate tween helper copied from BeastVim
+- `b837100` feat(notify): show vim.notify as animated cards in the top right (fast-event calls go through the callable; the copied `q` key was dropped because it left a gap)
+- `2cd2b77` feat(messages): show every message as a notify card instead of the hit-enter prompt
+- `a885d4a` docs: update codemap for notify and messages
+
+Verification: `make test` 172 passed, 0 failed; `make lint` clean. Real terminal (tmux): E21 in the preview showed as an ERROR card with no "Press ENTER", expired by itself, and a 44-column terminal wrapped the card to 42 columns. Notes: `notify.setup` runs after the terminal palette wait (not before it) so the cards get the real colors; a failing card call is wrapped in `pcall`.

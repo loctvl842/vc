@@ -43,7 +43,8 @@ local function route(kind, content)
 				pending[id] = nil
 			end
 			if not entry.cancelled then
-				require("vc.notify").notify(resolved.text, resolved.level or vim.log.levels.INFO)
+				-- A card that fails to show must not turn into another error message.
+				pcall(require("vc.notify").notify, resolved.text, resolved.level or vim.log.levels.INFO)
 			end
 		end)
 	end
