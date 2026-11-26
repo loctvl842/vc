@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec: Preview in Claude Code style</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a;
+          --t-bg:#faf9f5; --t-fg:#2b2a27; --t-dim:#8a857a; --t-acc:#c2570c; --t-green:#2d7a3e; --t-red:#b3261e;
+          --t-code:#3b5bdb; --t-band:#efece4; --t-add:#dff3e1; --t-del:#fbe3e1; --t-kw:#a626a4; --t-str:#2d7a3e; --t-com:#9a958a; --t-num:#b45309; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c;
+            --t-bg:#1b1a17; --t-fg:#e8e4da; --t-dim:#8c877c; --t-acc:#e08a3c; --t-green:#7fc98d; --t-red:#ef8b83;
+            --t-code:#8aa4ff; --t-band:#2a2823; --t-add:#1f3a25; --t-del:#4a2523; --t-kw:#d291e4; --t-str:#98c379; --t-com:#6f6a60; --t-num:#e5a45a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:36px 0; }
+  h1 { font-size:28px; margin:0 0 8px; } h2 { font-size:20px; margin:0 0 12px; } h3 { font-size:15px; margin:18px 0 6px; }
+  p { margin:8px 0; } ul { padding-left:20px; } li { margin:4px 0; }
+  .muted { color:var(--muted); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:12px 0; }
+  .tag { display:inline-block; font-size:12px; color:var(--muted); border:1px solid var(--line); border-radius:99px; padding:1px 9px; margin-bottom:6px; }
+  .rec { color:var(--accent); font-weight:600; }
+  .term { background:var(--t-bg); color:var(--t-fg); border:1px solid var(--line); border-radius:8px; padding:10px 14px;
+          font:13px/1.45 ui-monospace, Menlo, Consolas, monospace; white-space:pre-wrap; overflow-wrap:anywhere; margin:8px 0; }
+  .term .u { display:block; background:var(--t-band); }
+  .term .ch { color:var(--t-acc); } .term .dot { color:var(--t-fg); } .term .dim { color:var(--t-dim); }
+  .term b { font-weight:700; } .term i { font-style:italic; } .term u { text-decoration:underline; } .term s { text-decoration:line-through; }
+  .term .code { color:var(--t-code); } .term .err { color:var(--t-red); }
+  .term .add { display:block; background:var(--t-add); } .term .del { display:block; background:var(--t-del); }
+  .term .kw { color:var(--t-kw); } .term .str { color:var(--t-str); } .term .com { color:var(--t-com); font-style:italic; } .term .num { color:var(--t-num); }
+  .term .bar { color:var(--t-dim); }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:700px) { .grid { grid-template-columns:1fr; } }
+  .step { border-left:3px solid var(--line); padding-left:12px; margin:10px 0; }
+  .check li { list-style:none; margin-left:-20px; } .check li::before { content:"\2610\00a0"; color:var(--muted); }
+  table { border-collapse:collapse; width:100%; font-size:14px; } th,td { border:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }
+  details { margin:8px 0; } summary { cursor:pointer; font-weight:600; }
+</style>
+</head>
+<body>
+<main>
+
+<header data-spec="summary">
+  <h1>Preview in Claude Code style</h1>
+  <p>The preview pane shows a past session the way Claude Code itself draws it: <code>&gt;</code> prompts, <code>●</code> replies, real bold / italic / headings / lists / inline code, highlighted code blocks, one-line tool calls and colored diffs. Browsing sessions should feel like scrolling the real screen, not a text dump.</p>
+  <p class="muted">Review copy of <code>docs/pm-specs/finder-preview-style.md</code>. If they disagree, the .md wins.</p>
+</header>
+
+<section data-spec="problem">
+  <h2>Problem</h2>
+  <div class="grid">
+    <div>
+      <span class="tag">Today</span>
+<div class="term"><span class="ch">## You</span>
+The login test fails on CI only.
+
+<span class="ch">## Claude</span>
+It looks like a **timing issue**. Run
+`npm test` after the ## Next steps
+- wait for the form
+<span class="dim">▸ 3 tool calls, thinking (41 lines)</span></div>
+      <p class="muted">Raw markdown symbols, no color on code, headings instead of markers, all tool activity in one gray fold of raw JSON.</p>
+    </div>
+    <div>
+      <span class="tag">Target</span>
+<div class="term"><span class="u"><span class="ch">&gt;</span> The login test fails on CI only.</span>
+<span class="dot">●</span> It looks like a <b>timing issue</b>. Run
+  <span class="code">npm test</span> after the
+  <b>Next steps</b>
+  • wait for the form
+<span class="dot">●</span> <b>Bash</b><span class="dim">(npm test)</span>
+  <span class="dim">⎿  12 passed</span></div>
+      <p class="muted">Same hierarchy and emphasis as Claude Code, so a session is recognisable at a glance.</p>
+    </div>
+  </div>
+  <p><b>Why now:</b> the finder already wears the terminal's colors. Claude Code is the only other screen the user lives in, so matching it closes the last visual gap and a quick look is enough to pick a session.</p>
+</section>
+
+<section data-spec="target-behavior">
+  <h2>Target behavior</h2>
+
+  <div data-spec="state-1">
+    <h3>State 1 - A normal exchange</h3>
+<div class="term"><span class="dim">~/work/api-server - 34 messages</span>
+
+<span class="u"><span class="ch">&gt;</span> The login test fails on CI only. Can you look
+  into it?</span>
+
+<span class="dot">●</span> It looks like a timing issue. The test clicks
+  the button before the form is ready.
+
+  Plan:
+  - Wait for the <span class="code">form</span> to mount
+  - Re-run the suite on CI
+
+<span class="dot">●</span> <b>Read</b><span class="dim">(tests/login.spec.ts)</span>
+  <span class="dim">⎿  Read 84 lines</span>
+
+<span class="dot">●</span> <b>Update</b><span class="dim">(tests/login.spec.ts)</span>
+  <span class="dim">⎿  Updated with 2 additions and 1 removal</span>
+<span class="del">     41 -  await page.click(submit)</span><span class="add">     41 +  await page.waitFor(form)</span><span class="add">     42 +  await page.click(submit)</span>
+<span class="u"><span class="ch">&gt;</span> Thanks, run it again</span>
+
+<span class="dot">●</span> <b>Bash</b><span class="dim">(npm test)</span>
+  <span class="dim">⎿  12 passed</span></div>
+  </div>
+
+  <div data-spec="state-2">
+    <h3>State 2 - Text styling in Claude's replies</h3>
+<div class="term"><span class="dot">●</span> <b>Important:</b> the fix is <i>small</i>.
+  <span class="code">npm test</span> passes now.
+  <b>Next steps</b>
+  1. Merge the branch
+  • Delete the old test
+  <span class="bar">▎</span> <span class="dim"><i>Note: CI is slower than local.</i></span>
+  See <u>the docs</u>.   <s>old</s></div>
+    <table>
+      <tr><th>You write</th><th>You see</th></tr>
+      <tr><td>bold / italic / strikethrough</td><td>real bold, italic, strikethrough</td></tr>
+      <tr><td>inline code</td><td>own color, no backticks</td></tr>
+      <tr><td>heading</td><td>bold, no <code>#</code></td></tr>
+      <tr><td>list</td><td>glyphs / numbers, wrapped lines align under the text</td></tr>
+      <tr><td>quote</td><td>bar on the left, dim italic text</td></tr>
+      <tr><td>link</td><td>text underlined, address not shown inline</td></tr>
+    </table>
+  </div>
+
+  <div data-spec="state-3">
+    <h3>State 3 - Code block</h3>
+<div class="term"><span class="dot">●</span> Here is the helper:
+
+    <span class="dim">lua</span>
+    <span class="kw">local function</span> wait(form)
+      <span class="kw">return</span> form:ready() <span class="com">-- poll</span>
+    <span class="kw">end</span></div>
+    <p class="muted">Language name dim above. Keywords, strings, numbers, comments use palette colors. Long lines wrap with an indent.</p>
+  </div>
+
+  <div data-spec="state-4">
+    <h3>State 4 - Tool calls and results</h3>
+<div class="term"><span class="dot">●</span> <b>Bash</b><span class="dim">(git status --short)</span>
+  <span class="dim">⎿   M lua/vc/finder/query.lua
+      M lua/vc/sessions/scan.lua
+      … +14 lines</span>
+
+<span class="dot">●</span> <b>Bash</b><span class="dim">(rm build)</span>
+  <span class="err">⎿  Error: no such file</span></div>
+    <p class="muted">Tool name bold, arguments dim, first lines of the result, the rest folded (opens with the usual fold keys). Errors in the error color.</p>
+  </div>
+
+  <div data-spec="state-5">
+    <h3>State 5 - Thinking</h3>
+<div class="term"><span class="dim">✻ Thinking…</span>   <span class="muted">(closed, default)</span>
+
+<span class="dim">✻ Thinking…</span>   <span class="muted">(opened)</span>
+<span class="dim"><i>  The test is flaky because the click races
+  the form mount. I should wait first.</i></span></div>
+  </div>
+
+  <div data-spec="state-6">
+    <h3>State 6 - Header and user prompts</h3>
+<div class="term"><span class="dim">~/work/api-server - 34 messages</span>
+<span class="u"><span class="ch">&gt;</span> user prompt</span></div>
+    <p class="muted">Chevron in the accent color, text on a subtle band. One blank line between messages. The "You" / "Claude" headings go away.</p>
+  </div>
+
+  <div data-spec="state-7">
+    <h3>State 7 - File edits as diffs</h3>
+<div class="term"><span class="dot">●</span> <b>Update</b><span class="dim">(src/app.lua)</span>
+  <span class="dim">⎿  Updated with 1 addition and 1 removal</span>
+<span class="dim">     12    local port = 80</span><span class="del">     13 -  local host = "a"</span><span class="add">     13 +  local host = "b"</span><span class="dim">     14    start(host, port)</span></div>
+  </div>
+
+  <div data-spec="state-8">
+    <h3>State 8 - Content it cannot style</h3>
+    <p>Shown as plain readable text in the normal text color. Never garbled, never hidden, never raw JSON where a one-line summary would do.</p>
+  </div>
+</section>
+
+<section data-spec="scenarios">
+  <h2>Scenarios</h2>
+
+  <div class="card" data-spec="scenario-1">
+    <h3>1 - Glance at a session in the list</h3>
+    <div class="step"><b>Move the selection over a session.</b> Preview fills with <code>&gt;</code> prompts, <code>●</code> replies, styled text, one-line tool calls. No raw markdown symbols.</div>
+    <div class="step"><b>Move to another session.</b> New conversation replaces it, same look, no flash of unstyled text.</div>
+  </div>
+
+  <div class="card" data-spec="scenario-2">
+    <h3>2 - Reply with mixed markdown</h3>
+    <div class="step"><b>Heading, bullets, bold, inline code.</b> Heading bold, bullets use a glyph, inline code in its own color without backticks. Wrapped list lines align under the item text.</div>
+    <div class="step"><b>Reply narrower than the pane.</b> Text wraps at the edge keeping the <code>●</code> hanging indent.</div>
+  </div>
+
+  <div class="card" data-spec="scenario-3">
+    <h3>3 - Code in a reply</h3>
+    <div class="step"><b>Lua block.</b> Dim language name above; keywords, strings, numbers, comments in different palette colors.</div>
+    <div class="step"><b>Unknown or no language.</b> Still looks like code (indent, code color), without syntax colors.</div>
+  </div>
+
+  <div class="card" data-spec="scenario-4">
+    <h3>4 - Tool activity</h3>
+    <div class="step"><b>Several calls in a row.</b> Each is one <code>● Name(args)</code> line with the first lines of its result; long ones end in <code>… +N lines</code>.</div>
+    <div class="step"><b>Open the fold.</b> Full result appears in place, dimmed, under its call. Closing returns to the summary.</div>
+    <div class="step"><b>A failed call.</b> Result in the error color from the first line.</div>
+  </div>
+
+  <div class="card" data-spec="scenario-5">
+    <h3>5 - A file edit</h3>
+    <div class="step"><b>Update(path).</b> Count line, then changed lines with line numbers: removed on an error band, added on a green band, context plain.</div>
+  </div>
+
+  <div class="card" data-spec="scenario-6">
+    <h3>6 - Terminal flips light / dark with a preview open</h3>
+    <div class="step"><b>Switch the terminal theme.</b> All preview colors repaint in place. Scroll position and open folds stay.</div>
+  </div>
+
+  <div class="card" data-spec="scenario-7">
+    <h3>7 - Very long session</h3>
+    <div class="step"><b>Select a session with thousands of messages.</b> The top appears immediately and the rest fills in. Moving away cancels the work. Typing in the query box is never delayed.</div>
+  </div>
+
+  <div class="card" data-spec="scenario-8">
+    <h3>8 - Odd content</h3>
+    <div class="step"><b>Table, image, unstyleable markdown.</b> Tables keep aligned rows and columns with box lines; images show as <code>[image]</code>; everything else plain. Nothing is dropped.</div>
+  </div>
+</section>
+
+<section data-spec="behavior-rules">
+  <h2>Behavior rules</h2>
+  <ul>
+    <li>User prompts start with <code>&gt;</code>, Claude's text with <code>●</code>; continuation lines sit under the text.</li>
+    <li>Markdown markers (<code>**</code>, <code>*</code>, backticks, <code>#</code>, link brackets) are never shown once their style is applied.</li>
+    <li>All colors come from the terminal palette and flip with light / dark; no fixed hex values.</li>
+    <li>Bold, italic, underline, strikethrough use terminal text attributes, so they work wherever Claude Code works.</li>
+    <li>Tool results show only the first few lines; the rest is folded and opens with the usual fold keys.</li>
+    <li>Thinking is closed by default.</li>
+    <li>Every tool call line is always visible; only its long output is folded.</li>
+    <li>Copying text from the preview gives readable text without markdown markers.</li>
+    <li>Preview stays read-only; selection and fold keys behave as today.</li>
+    <li>Resizing the finder re-wraps the text without losing position.</li>
+  </ul>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul class="check">
+    <li>The preview and the same session in Claude Code read as the same screen: markers, hierarchy, emphasis.</li>
+    <li>No raw <code>**</code>, backticks, <code>##</code> or link syntax in any reply.</li>
+    <li>Bold, italic, headings, lists, quotes, inline code, links, strikethrough each look distinct.</li>
+    <li>Code blocks are highlighted for common languages and still look like code when the language is unknown.</li>
+    <li>Every tool call is one line; results are summarised and expand in place.</li>
+    <li>File edits show as a colored diff with line numbers.</li>
+    <li>Dark and light themes are both readable; a flip repaints live.</li>
+    <li>Rapid selection changes never freeze typing or leave a half-styled screen.</li>
+    <li>Wrapped lines keep a straight hanging indent in replies, lists and quotes.</li>
+  </ul>
+</section>
+
+<section data-spec="decisions">
+  <h2>Decisions for you</h2>
+  <div class="card" data-spec="decision-tool-lines">
+    <b>1. Tool calls: one visible line each, or one fold per run like today?</b>
+    <ul>
+      <li><span class="rec">Recommended:</span> one visible line per call, results folded. This is what makes it look like Claude Code, and the call lines are what you scan to remember a session. Cost: tool-heavy sessions get longer.</li>
+      <li>Keep one fold per run: shorter, but the call names are hidden until opened.</li>
+    </ul>
+  </div>
+  <div class="card" data-spec="decision-thinking">
+    <b>2. Thinking</b>
+    <ul>
+      <li><span class="rec">Recommended:</span> <code>✻ Thinking…</code> folded (same as what the preview shows today).</li>
+      <li>Hide it entirely.</li>
+    </ul>
+  </div>
+  <div class="card" data-spec="decision-sidechain">
+    <b>3. Sub-agent messages</b>
+    <ul>
+      <li><span class="rec">Recommended:</span> keep hidden, as today.</li>
+      <li>Show as a nested, indented block.</li>
+    </ul>
+  </div>
+</section>
+
+<section data-spec="reference-captures">
+  <h2>Reference captures needed</h2>
+  <p>The look above is from how Claude Code is known to draw a transcript. Screenshots from your terminal are the ground truth for the details. If you open Claude Code on a few sessions, I need:</p>
+  <ul class="check">
+    <li>A user prompt (chevron color, background band, multi-line wrap)</li>
+    <li>A reply with a heading, bold, italic, inline code, bullet list, numbered list and a quote</li>
+    <li>A fenced code block (language label, indent, colors)</li>
+    <li>A Bash call with long output (the <code>… +N lines</code> line) and one that failed</li>
+    <li>An Edit/Update diff and a Write call</li>
+    <li>A thinking block, opened and closed</li>
+    <li>A table, and a todo list, if any session has them</li>
+  </ul>
+</section>
+
+<section data-spec="out-of-scope">
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Live updating of a running session - the preview shows the file as of selection.</li>
+    <li>Inline images or other media (placeholder only).</li>
+    <li>Mouse interaction on links or code.</li>
+    <li>Claude Code's input box, status line, permission prompts - only the conversation.</li>
+    <li>Sub-agent transcripts as separate panes - deferred until the main look is right.</li>
+  </ul>
+</section>
+
+</main>
+</body>
+</html>
