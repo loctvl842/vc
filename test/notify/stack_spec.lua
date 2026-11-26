@@ -36,7 +36,7 @@ describe("notify stack", function()
 
 	it("shows a card and stacks the next one below it", function()
 		notify.notify("first", "ERROR")
-		notify.notify("second")
+		notify.notify("second", "WARN")
 		wait(function()
 			return open_cards() == 2
 		end)
@@ -54,7 +54,7 @@ describe("notify stack", function()
 
 	it("shows a message raised in a fast event", function()
 		vim.uv.new_timer():start(0, 0, function()
-			vim.notify("from a timer")
+			vim.notify("from a timer", vim.log.levels.WARN)
 		end)
 		wait(function()
 			return open_cards() == 1
@@ -64,7 +64,7 @@ describe("notify stack", function()
 	it("slides the oldest cards out when the stack would pass the bottom", function()
 		vim.o.lines = 12
 		for i = 1, 6 do
-			notify.notify("m" .. i)
+			notify.notify("m" .. i, "WARN")
 		end
 		wait(function()
 			local rows = card_rows()
@@ -73,8 +73,8 @@ describe("notify stack", function()
 	end)
 
 	it("closes every card on dismiss", function()
-		notify.notify("a")
-		notify.notify("b")
+		notify.notify("a", "WARN")
+		notify.notify("b", "WARN")
 		wait(function()
 			return open_cards() == 2
 		end)
