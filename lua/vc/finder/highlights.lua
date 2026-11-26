@@ -6,7 +6,6 @@ local links = {
 	Normal = "NormalFloat",
 	Border = "FloatBorder",
 	InputTitle = "Title",
-	InputPromptPrefix = "Special",
 	Spinner = "Special",
 	ListCursorLine = "CursorLine",
 	ListSelectionPrefix = "Special",
@@ -20,7 +19,6 @@ local links = {
 	PreviewHeading = "Title",
 	PreviewYou = "Function",
 	PreviewClaude = "String",
-	PreviewFold = "Comment",
 }
 
 function M.setup()

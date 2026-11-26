@@ -142,24 +142,4 @@ function M:sorted()
 	return out
 end
 
---- Get item at 1-based index from the internal (unsorted) heap.
---- Use `sorted()` for display-order access.
----@param idx integer
----@return VC.Finder.Item|nil
-function M:get(idx)
-	return self._data[idx]
-end
-
---- Number of items currently in the heap.
----@return integer
-function M:count()
-	return self._size
-end
-
---- Remove all items.
-function M:clear()
-	self._data = {}
-	self._size = 0
-end
-
 return M

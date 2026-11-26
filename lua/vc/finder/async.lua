@@ -54,10 +54,6 @@ end
 
 local M = {}
 
----@type table
-M.meta =
-	{ name = "async", description = "Cooperative async scheduler over libuv (coroutines, time-budgeted execution)" }
-
 ---@class VC.Async.Task
 ---@field _co thread
 local Task = {}
