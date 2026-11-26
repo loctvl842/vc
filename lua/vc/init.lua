@@ -9,6 +9,7 @@ local M = {}
 
 ---@type { index?: { root?: string, cache_path?: string } }
 local opts = {}
+local cancel_index ---@type fun()?
 
 --- A plain empty buffer in the only window, with nothing else on screen.
 local function reset_window()
@@ -23,15 +24,22 @@ end
 
 --- Show the finder: cached sessions at once, the rest as soon as they are scanned.
 function M.show_finder()
+	if cancel_index then
+		cancel_index()
+		cancel_index = nil
+	end
 	reset_window()
 	local session = finder.open({
 		on_confirm = M.open_item,
 		on_exit = function()
+			if cancel_index then
+				cancel_index()
+			end
 			vim.cmd("qa!")
 		end,
 	})
 	session:busy(true)
-	index.load(opts.index, function(rows, done)
+	cancel_index = index.load(opts.index, function(rows, done)
 		session:set_rows(rows)
 		if done then
 			session:busy(false)
@@ -42,6 +50,10 @@ end
 --- Enter on a finder item: hand the window to Claude Code.
 ---@param item VC.Finder.Item
 function M.open_item(item)
+	if cancel_index then
+		cancel_index()
+		cancel_index = nil
+	end
 	reset_window()
 	claude.run(item, function(code)
 		M.show_finder()

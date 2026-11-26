@@ -55,6 +55,7 @@ end
 --- right away (when any exist) and again after changed files are rescanned.
 ---@param opts? { root?: string, cache_path?: string }
 ---@param on_rows fun(rows: VC.Row[], done: boolean)
+---@return fun() cancel stops a rescan in flight; nothing more is delivered or cached
 function M.load(opts, on_rows)
 	opts = opts or {}
 	local root = opts.root or M.default_root()
@@ -62,10 +63,9 @@ function M.load(opts, on_rows)
 
 	local cached = cache.read(cache_path)
 	local files = list_files(root)
-	local present, todo = {}, {}
+	local todo = {}
 	local rows = {}
 	for _, file in ipairs(files) do
-		present[file.path] = true
 		local c = cached[file.path]
 		if c and c.size == file.stat.size and c.mtime == file.stat.mtime.sec then
 			rows[file.path] = c
@@ -74,12 +74,17 @@ function M.load(opts, on_rows)
 		end
 	end
 
+	local cancelled = false
+	local function cancel()
+		cancelled = true
+	end
+
 	if #todo == 0 then
 		if vim.tbl_count(cached) ~= #files then
 			cache.write(cache_path, rows)
 		end
 		on_rows(sorted(rows), true)
-		return
+		return cancel
 	end
 	if next(rows) then
 		on_rows(sorted(rows), false)
@@ -88,6 +93,8 @@ function M.load(opts, on_rows)
 	local i = 1
 	local last_emit = vim.uv.hrtime()
 	local function step()
+		-- stylua: ignore
+		if cancelled then return end
 		local stop = math.min(i + BATCH - 1, #todo)
 		for j = i, stop do
 			local row = scan.scan_file(todo[j].path, todo[j].stat)
@@ -108,6 +115,7 @@ function M.load(opts, on_rows)
 		on_rows(sorted(rows), true)
 	end
 	step()
+	return cancel
 end
 
 return M

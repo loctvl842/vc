@@ -95,4 +95,20 @@ describe("index", function()
 			return done
 		end, 10000)
 	end)
+
+	it("a cancelled load delivers and caches nothing", function()
+		local store = F.store()
+		for i = 1, 100 do
+			write_file(store.proj .. ("c%d.jsonl"):format(i), { F.user("x", "2026-10-01T00:00:00.000Z", store.alive) })
+		end
+		local cp = tmpdir() .. "/idx.json"
+		local delivered = false
+		local cancel = index.load({ root = store.root, cache_path = cp }, function(_, done)
+			delivered = delivered or done
+		end)
+		cancel()
+		vim.wait(300)
+		eq(false, delivered)
+		eq(0, vim.fn.filereadable(cp))
+	end)
 end)
