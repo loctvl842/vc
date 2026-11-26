@@ -2,6 +2,7 @@
 -- dropped and the style they stand for becomes a mark, so the preview shows bold text instead of "**bold**".
 -- Both the block structure and the inline spans come from tree-sitter (the bundled `markdown` and
 -- `markdown_inline` parsers). Without a parser, or on any error, the text is returned as it is.
+local code = require("vc.code")
 local toolline = require("vc.toolline")
 
 local M = {}
@@ -243,20 +244,23 @@ end
 
 local render ---@type fun(node: TSNode, src: string): VC.Doc
 
----@param code string
+---@param text string
 ---@param lang? string
 ---@return VC.Doc
-local function code_block(code, lang)
+local function code_block(text, lang)
 	local d = doc({})
-	if lang and lang ~= "" then
+	local label = lang and lang ~= ""
+	if label then
 		d.lines[1] = CODE_INDENT .. lang
 		d.marks[1] = { l = 1, c = #CODE_INDENT, e = #CODE_INDENT + #lang, hl = "CodeLang" }
 	end
-	for _, l in ipairs(toolline.split(code)) do
+	local lines = toolline.split(text)
+	for _, l in ipairs(lines) do
 		d.lines[#d.lines + 1] = l == "" and "" or (CODE_INDENT .. l)
-		if l ~= "" then
-			d.marks[#d.marks + 1] = { l = #d.lines, c = #CODE_INDENT, e = #CODE_INDENT + #l, hl = "CodeBlock" }
-		end
+	end
+	for _, m in ipairs(code.marks(table.concat(lines, "\n"), lang)) do
+		d.marks[#d.marks + 1] =
+			{ l = m.l + (label and 1 or 0), c = m.c + #CODE_INDENT, e = m.e + #CODE_INDENT, hl = m.hl }
 	end
 	return d
 end
@@ -344,15 +348,15 @@ function render(node, src)
 	elseif kind == "block_quote" then
 		return prefixed(blocks(node, src), "▎ ", "▎ ", { keep_empty = true, bar = "QuoteBar", text_hl = "Quote" })
 	elseif kind == "fenced_code_block" then
-		local lang, code
+		local lang, text
 		for child in node:iter_children() do
 			if child:type() == "info_string" then
 				lang = vim.split(vim.trim(text_of(child, src)), "%s+")[1]
 			elseif child:type() == "code_fence_content" then
-				code = text_of(child, src)
+				text = text_of(child, src)
 			end
 		end
-		return code_block(code or "", lang)
+		return code_block(text or "", lang)
 	elseif kind == "indented_code_block" then
 		return code_block((text_of(node, src):gsub("^    ", ""):gsub("\n    ", "\n")), nil)
 	elseif kind == "thematic_break" then

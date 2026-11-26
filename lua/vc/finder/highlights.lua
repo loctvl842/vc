@@ -8,7 +8,7 @@ local M = {}
 local NONE = "NONE"
 
 -- ANSI slots by role.
-local RED, GREEN, YELLOW, BLUE, CYAN = 1, 2, 3, 4, 6
+local RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN = 1, 2, 3, 4, 5, 6
 
 --- Highlight attributes per role, in RGB when the terminal's colors are known, else palette indexes.
 local function colors()
@@ -25,6 +25,7 @@ local function colors()
 			red = { ctermfg = RED },
 			you = { ctermfg = CYAN },
 			blue = { ctermfg = BLUE },
+			magenta = { ctermfg = MAGENTA },
 			match = { ctermfg = YELLOW, bold = true },
 			select = { ctermbg = light and 7 or 0 },
 			fold = { ctermfg = 8, ctermbg = light and 7 or 0 },
@@ -43,6 +44,7 @@ local function colors()
 		red = slot(RED),
 		you = slot(BLUE),
 		blue = slot(BLUE),
+		magenta = slot(MAGENTA),
 		match = { fg = theme.hex(p[YELLOW]), bg = theme.mix(p.bg, p.fg, 0.2), bold = true },
 		select = { bg = theme.mix(p.bg, p.fg, 0.08) },
 		fold = { fg = theme.mix(p.bg, p.fg, 0.5), bg = theme.mix(p.bg, p.fg, 0.06) },
@@ -88,8 +90,13 @@ function M.apply()
 		PreviewQuoteBar = c.dim,
 		PreviewHeading = { bold = true },
 		PreviewHeading1 = { bold = true, italic = true, underline = true },
-		PreviewCodeBlock = c.surface,
 		PreviewCodeLang = c.dim,
+		PreviewCodeKeyword = c.magenta,
+		PreviewCodeString = c.green,
+		PreviewCodeNumber = c.accent,
+		PreviewCodeComment = vim.tbl_extend("force", c.dim, { italic = true }),
+		PreviewCodeFunction = c.blue,
+		PreviewCodeType = c.cyan,
 		ListCursorLine = c.select,
 		ListCursor = { blend = 100, nocombine = true },
 	}
