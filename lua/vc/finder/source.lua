@@ -255,11 +255,19 @@ function M.format(item, width, opts)
 	local title, title_kept = fit(row.title, avail, "head")
 
 	local location = M.location(row)
-	local chips = (row.branch and " · " .. row.branch or "") .. (row.pr and " · #" .. row.pr or "")
 	local gone = row.cwd_exists == false and " (folder gone)" or ""
 	local stats = M.relative_time(row.last_ts) .. "   " .. row.msg_count .. " msg"
-	local taken = #gone + vim.fn.strdisplaywidth(chips) + 2 + vim.fn.strdisplaywidth(stats)
-	local shown_loc, loc_kept = fit(location, math.max(8, width - 4 - taken), "tail")
+	-- The age and count keep their place at the right; the folder and the chips share what is left. The folder
+	-- keeps at least 8 columns, so a long branch gives way first.
+	local left_w = width - GUTTER - #INDENT - 2 - vim.fn.strdisplaywidth(stats) - #gone
+	local pr_chip = row.pr and " · #" .. row.pr or ""
+	local branch = row.branch
+	if branch then
+		local room = left_w - 8 - vim.fn.strdisplaywidth(pr_chip) - vim.fn.strdisplaywidth(" · ")
+		branch = room >= 4 and fit(branch, room, "head") or nil
+	end
+	local chips = (branch and " · " .. branch or "") .. pr_chip
+	local shown_loc, loc_kept = fit(location, math.max(8, left_w - vim.fn.strdisplaywidth(chips)), "tail")
 	local detail = { { text = INDENT .. shown_loc, hl = "VCFinderListDim" } }
 	if chips ~= "" then
 		detail[#detail + 1] = { text = chips, hl = "VCFinderListDim" }

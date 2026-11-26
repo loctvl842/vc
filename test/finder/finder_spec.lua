@@ -193,8 +193,8 @@ describe("finder", function()
 		eq("+ New session", lines[1])
 		eq("", lines[2])
 		eq("Fix flaky login test", lines[3])
-		truthy(lines[4]:find("· main · #8", 1, true), lines[4])
-		truthy(lines[4]:find("server", 1, true), lines[4])
+		-- the list is narrow here: the folder keeps its end and the PR, the branch gives way
+		truthy(lines[4]:find("server · #8", 1, true), lines[4])
 		truthy(lines[5]:find("You   › ok replace", 1, true), lines[5])
 		local next_title = vim.fn.index(lines, "Draft Q4 roadmap outline") + 1
 		truthy(next_title > 5, "the next session follows")
@@ -256,6 +256,17 @@ describe("finder", function()
 		local folder = texts((source.format(item_of(r), 60)))[2]
 		truthy(folder:find("^  …"), folder)
 		truthy(folder:find("api%-server · main · #8"), folder)
+	end)
+
+	it("shortens a long branch before the folder row overflows a narrow list", function()
+		local r = vim.deepcopy(ROWS[1])
+		r.branch, r.pr = "feat/preview-style-with-a-very-long-name", nil
+		for _, width in ipairs({ 38, 50, 80 }) do
+			local folder = texts((source.format(item_of(r), width)))[2]
+			truthy(vim.fn.strdisplaywidth(folder) <= width - 2, ("%d columns: %q"):format(width, folder))
+		end
+		truthy(texts((source.format(item_of(r), 38)))[2]:find("· feat/…", 1, true))
+		eq(true, texts((source.format(item_of(r), 80)))[2]:find(r.branch, 1, true) ~= nil)
 	end)
 
 	it("shows the full location with the home folder as ~", function()
