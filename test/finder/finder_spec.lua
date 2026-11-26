@@ -752,5 +752,29 @@ describe("finder", function()
 			eq("cwd:api x", state.pattern)
 			truthy(state.has_terms)
 		end)
+		it("colours a recognised prefix in the prompt, even before it has a value", function()
+			local s = open()
+			local input = s.view.input
+			local function marked()
+				local out = {}
+				local marks = vim.api.nvim_buf_get_extmarks(input.buf, input.field_ns, 0, -1, { details = true })
+				for _, m in ipairs(marks) do
+					local line = vim.api.nvim_buf_get_lines(input.buf, 0, 1, false)[1]
+					eq("VCFinderField", m[4].hl_group)
+					out[#out + 1] = line:sub(m[3] + 1, m[4].end_col)
+				end
+				return out
+			end
+			type_query(s, "cwd:")
+			eq({ "cwd:" }, marked())
+			type_query(s, "x title:nvim msg:y")
+			eq({ "title:", "msg:" }, marked())
+			type_query(s, "ticket:42 Cwd:x")
+			eq({}, marked())
+			type_query(s, "cwd:jarvix")
+			type_query(s, "")
+			eq({}, marked())
+			s:close()
+		end)
 	end)
 end)

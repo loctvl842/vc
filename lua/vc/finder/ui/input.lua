@@ -1,20 +1,23 @@
 local View = require("vc.finder.view")
 local config = require("vc.finder.config")
 local debounce = require("vc.debounce")
+local fieldquery = require("vc.finder.fieldquery")
 
 local SPINNER = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }
 local SPINNER_INTERVAL_MS = 80
 
 ---@class VC.Finder.InputView: VC.Finder.View
 ---@field ns integer
+---@field field_ns integer marks on the recognised `field:` prefixes of the query
 ---@field _debounced? table
 ---@field _on_change fun()
 ---@field _spinner_timer? uv.uv_timer_t
 ---@field _spinner_frame integer
 ---@field _spinner_extmark? integer
 ---@field _count_extmark? integer
-local InputView = View.Instance:extend(function(obj, ns)
+local InputView = View.Instance:extend(function(obj, ns, field_ns)
 	obj.ns = ns
+	obj.field_ns = field_ns
 	obj._spinner_frame = 0
 end)
 
@@ -28,6 +31,7 @@ function M.create(on_change, geo, title)
 	local buf = View.new_buf("vc-finder-input")
 	vim.bo[buf].buftype = "prompt"
 	local ns = vim.api.nvim_create_namespace("vc-finder-input")
+	local field_ns = vim.api.nvim_create_namespace("vc-finder-input-fields")
 
 	local win = vim.api.nvim_open_win(buf, true, {
 		relative = "editor",
@@ -45,7 +49,7 @@ function M.create(on_change, geo, title)
 	View.wo(win, "fillchars", "eob: ")
 	View.wo(win, "winhl", "Normal:VCFinderNormal,FloatBorder:VCFinderBorder,FloatTitle:VCFinderInputTitle")
 
-	local view = InputView(buf, win, ns)
+	local view = InputView(buf, win, ns, field_ns)
 	local prefix = config.prompt_prefix
 	vim.fn.prompt_setprompt(buf, prefix)
 
@@ -58,6 +62,8 @@ function M.create(on_change, geo, title)
 	vim.api.nvim_create_autocmd({ "TextChangedI", "TextChanged" }, {
 		buffer = buf,
 		callback = function()
+			-- The prefix colour is not debounced: it answers the colon as it is typed.
+			M.mark_fields(view)
 			view._debounced()
 		end,
 	})
@@ -87,6 +93,23 @@ function M.get_text(view)
 		text = text:sub(#prefix + 1)
 	end
 	return text
+end
+
+--- Colour the `field:` prefixes the matcher recognises (`cwd:`, `title:`, ...) in the query.
+---@param view VC.Finder.InputView
+function M.mark_fields(view)
+	-- stylua: ignore
+	if not view:is_valid() then return end
+	vim.api.nvim_buf_clear_namespace(view.buf, view.field_ns, 0, -1)
+	local line = vim.api.nvim_buf_get_lines(view.buf, 0, 1, false)[1] or ""
+	local prefix = config.prompt_prefix
+	local offset = line:sub(1, #prefix) == prefix and #prefix or 0
+	for _, p in ipairs(fieldquery.parse(line:sub(offset + 1)).prefixes) do
+		vim.api.nvim_buf_set_extmark(view.buf, view.field_ns, 0, offset + p.s - 1, {
+			end_col = offset + p.e,
+			hl_group = "VCFinderField",
+		})
+	end
 end
 
 --- Show (or with nil, clear) a right-aligned dim label in the prompt row, e.g. the result count.
