@@ -6,7 +6,7 @@ local config = require("vc.finder.config")
 ---@alias VC.Finder.Chunk { text: string, hl?: string, right_align?: boolean }
 ---@alias VC.Finder.Lines VC.Finder.Chunk[][] one array of chunks per buffer row of the item
 ---@alias VC.Finder.Range { row: integer, s: integer, e: integer } match highlight: 1-based item row, 0-based byte columns [s, e)
----@alias VC.Finder.FormatFn fun(item: VC.Finder.Item, width: integer): VC.Finder.Lines, VC.Finder.Range[]?
+---@alias VC.Finder.FormatFn fun(item: VC.Finder.Item, width: integer, opts: VC.Finder.FormatOpts): VC.Finder.Lines, VC.Finder.Range[]?
 
 ---@class VC.Finder.ListView: VC.Finder.View
 ---@field ns integer
@@ -73,12 +73,21 @@ function M.set_footer(view, footer)
 	)
 end
 
+--- How item `idx` looks now: the one under the cursor is open, and none is taller than the window.
+---@param view VC.Finder.ListView
+---@param idx integer
+---@param width integer
+---@return VC.Finder.Lines
+---@return VC.Finder.Range[]?
+local function format_item(view, idx, width)
+	return view._format_fn(view.items[idx], width, { selected = idx == view.cursor, max_rows = view._win_height })
+end
+
 ---@param view VC.Finder.ListView
 ---@param idx integer
 ---@return integer
 local function height_of(view, idx)
-	local lines = view._format_fn(view.items[idx], vim.api.nvim_win_get_width(view.win))
-	return #lines
+	return #(format_item(view, idx, vim.api.nvim_win_get_width(view.win)))
 end
 
 --- Last item index that fits when the viewport starts at `offset` (0-based).
@@ -151,7 +160,7 @@ local function render_visible(view)
 	local row_to_item = {}
 	local rows, idx = 0, view._offset + 1
 	while idx <= #view.items do
-		local item_lines, ranges = view._format_fn(view.items[idx], width)
+		local item_lines, ranges = format_item(view, idx, width)
 		if rows + #item_lines > view._win_height and rows > 0 then
 			break
 		end
