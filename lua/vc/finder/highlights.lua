@@ -54,6 +54,9 @@ function M.apply()
 	local function bold(spec)
 		return vim.tbl_extend("force", spec, { bold = true })
 	end
+	local function italic(spec)
+		return vim.tbl_extend("force", spec, { italic = true })
+	end
 	local groups = {
 		Normal = c.surface,
 		Border = c.border,
@@ -64,8 +67,8 @@ function M.apply()
 		ListTitle = {},
 		ListDim = c.dim,
 		ListLabel = c.dim,
-		ListRecap = c.dim,
-		ListPrompt = {},
+		ListRecap = italic(c.dim),
+		ListPrompt = italic(c.dim),
 		ListNew = c.green,
 		ListGone = c.red,
 		Hint = c.dim,

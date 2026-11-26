@@ -23,6 +23,15 @@ describe("finder highlights", function()
 		eq(1, hl("ListGone").ctermfg)
 	end)
 
+	it("shows the recap and the last message dim and italic, the labels dim only", function()
+		for _, name in ipairs({ "ListRecap", "ListPrompt" }) do
+			eq(8, hl(name).ctermfg, name)
+			eq(true, hl(name).italic, name)
+		end
+		eq(8, hl("ListLabel").ctermfg)
+		eq(nil, hl("ListLabel").italic)
+	end)
+
 	it("never links to a default-scheme group", function()
 		for _, name in ipairs(vim.fn.getcompletion("VCFinder", "highlight")) do
 			eq(nil, vim.api.nvim_get_hl(0, { name = name }).link, name .. " is a link")
@@ -62,6 +71,14 @@ describe("finder highlights", function()
 		it("blends a tint for the selected row and the dim text", function()
 			eq(tonumber(theme.mix(palette.bg, palette.fg, 0.08):sub(2), 16), hl("ListCursorLine").bg)
 			eq(tonumber(theme.mix(palette.bg, palette.fg, 0.5):sub(2), 16), hl("ListDim").fg)
+		end)
+
+		it("keeps the recap and the last message the dim colour, in italic", function()
+			local dim = hl("ListDim").fg
+			for _, name in ipairs({ "ListRecap", "ListPrompt" }) do
+				eq(dim, hl(name).fg, name)
+				eq(true, hl(name).italic, name)
+			end
 		end)
 
 		it("leaves the background to the terminal", function()
