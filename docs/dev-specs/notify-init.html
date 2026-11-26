@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dev spec: notify-init</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a;
+          --copy:#2f7d4f; --new:#b4540a; --mod:#2b6cb0; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c;
+            --copy:#6fcf97; --new:#e08a3c; --mod:#7fb2ee; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:900px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:32px 0; }
+  h1 { margin:0 0 8px; } h2 { margin:0 0 12px; border-bottom:1px solid var(--line); padding-bottom:6px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 16px; margin:10px 0; }
+  .muted { color:var(--muted); }
+  code { font:13px ui-monospace, Menlo, monospace; }
+  table { width:100%; border-collapse:collapse; font-size:.92rem; display:block; overflow-x:auto; }
+  th, td { text-align:left; padding:6px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .tag { font-size:.72rem; font-weight:700; text-transform:uppercase; }
+  .copy { color:var(--copy); } .new { color:var(--new); } .mod { color:var(--mod); }
+  svg { width:100%; height:auto; color:var(--fg); }
+  .box { fill:var(--card); stroke:var(--line); } .boxc { fill:var(--card); stroke:var(--copy); stroke-width:2; }
+  .boxn { fill:var(--card); stroke:var(--new); stroke-width:2; } .t { fill:currentColor; font:12px ui-monospace, Menlo, monospace; }
+  .ar { stroke:var(--muted); fill:none; stroke-width:1.5; }
+  .risk { font-size:.8rem; color:var(--muted); }
+  .ok { list-style:none; padding-left:0; } .ok li::before { content:"\2610  "; color:var(--accent); }
+</style>
+</head>
+<body>
+<main>
+<header data-spec="summary">
+  <h1>notify-init - dev spec</h1>
+  <p>Port BeastVim's <code>notify</code> (animated card stack) and <code>messages</code> (ui2 interception) into VimClaude. Copy the files, rename to <code>vc.*</code>, recolor from <code>vc.theme</code>, and change only four things the PM spec needs.</p>
+  <p class="muted">PM spec: <code>docs/pm-specs/notify-init.md</code></p>
+</header>
+
+<section data-spec="context">
+  <h2>Context</h2>
+  <p><code>cmdheight = 0</code> and no message handling, so Neovim shows its blocking hit-enter prompt. VimClaude has no card UI; only one <code>vim.notify</code> caller exists (<code>lua/vc/init.lua:62</code>).</p>
+</section>
+
+<section data-spec="flow">
+  <h2>How it flows</h2>
+  <svg viewBox="0 0 860 190" role="img" aria-label="Message flow">
+    <title>Message to card flow</title>
+    <rect id="n-msg" class="box" x="10" y="70" width="130" height="50" rx="6"/><text class="t" x="22" y="92">Neovim message</text><text class="t" x="22" y="108">E21, warning, echo</text>
+    <rect id="n-ui2" class="boxc" x="190" y="70" width="150" height="50" rx="6"/><text class="t" x="202" y="92">ui2 msg_show</text><text class="t" x="202" y="108">wrapped (copy)</text>
+    <rect id="n-router" class="boxc" x="390" y="70" width="140" height="50" rx="6"/><text class="t" x="402" y="92">router (copy)</text><text class="t" x="402" y="108">kind -> level</text>
+    <rect id="n-notify" class="boxc" x="580" y="70" width="130" height="50" rx="6"/><text class="t" x="592" y="92">vc.notify</text><text class="t" x="592" y="108">record, stack</text>
+    <rect id="n-card" class="boxn" x="750" y="70" width="100" height="50" rx="6"/><text class="t" x="762" y="92">card</text><text class="t" x="762" y="108">top right</text>
+    <path class="ar" d="M140 95H190M340 95H390M530 95H580M710 95H750"/>
+    <rect class="box" x="190" y="10" width="150" height="34" rx="6"/><text class="t" x="200" y="32">prompts: ui2 keeps</text>
+    <path class="ar" d="M265 70V44"/>
+    <rect class="boxn" x="390" y="140" width="320" height="34" rx="6"/><text class="t" x="400" y="162">vim.notify also goes to vc.notify</text>
+    <path class="ar" d="M650 140V120"/>
+  </svg>
+  <p class="muted">Green = copied from BeastVim, orange = new or changed.</p>
+</section>
+
+<section data-spec="research">
+  <h2>Research</h2>
+  <div class="card"><strong>Repo.</strong> Searched <code>vim.notify, cmdheight, msg_show, ui2, zindex, animate</code>. Found <code>vc.finder.view</code> (BeastVim View already), <code>vc.finder.wrap</code>, <code>vc.theme</code>, finder highlight refresh pattern. No message routing, no animation. <strong>Reuse.</strong></div>
+  <div class="card"><strong>BeastVim.</strong> <code>notify</code>, <code>messages</code>, <code>animate</code> already do this. Extra deps: <code>Theme/Util.colors</code> (use <code>vc.theme</code>), <code>Toast</code> (use notify). <strong>Decision: Reuse (copy)</strong>, Build only 4 changes. Not copied: health, demo test, review/notify, Toast titles, first-line-only spill.</div>
+</section>
+
+<section data-spec="architecture-changes">
+  <h2>Files</h2>
+  <table>
+    <tr><th>Path</th><th></th><th>What</th></tr>
+    <tr><td><code>lua/vc/animate.lua</code></td><td class="tag copy">copy</td><td>tween + float animator, meta line removed</td></tr>
+    <tr><td><code>lua/vc/notify/init.lua</code></td><td class="tag copy">copy</td><td><code>vim.notify = M.notify</code>, fast-event scheduling, level filter</td></tr>
+    <tr><td><code>lua/vc/notify/config.lua</code></td><td class="tag mod">copy+</td><td>adds <code>width()</code> = min(80, columns-2)</td></tr>
+    <tr><td><code>lua/vc/notify/record.lua</code></td><td class="tag mod">copy+</td><td>wrap with <code>vc.finder.wrap</code>, cap 10 lines</td></tr>
+    <tr><td><code>lua/vc/notify/state.lua</code></td><td class="tag copy">copy</td><td>unchanged</td></tr>
+    <tr><td><code>lua/vc/notify/stack.lua</code></td><td class="tag mod">copy+</td><td>evict oldest when stack passes screen bottom; reflow on <code>VimResized</code></td></tr>
+    <tr><td><code>lua/vc/notify/ui.lua</code></td><td class="tag mod">copy+</td><td>View helpers renamed, clamped width</td></tr>
+    <tr><td><code>lua/vc/notify/highlights.lua</code></td><td class="tag new">new</td><td>terminal-palette groups, refresh on background / focus</td></tr>
+    <tr><td><code>lua/vc/messages/init.lua</code></td><td class="tag mod">copy+</td><td>calls <code>vc.notify</code> instead of Toast; unmatched kinds become INFO</td></tr>
+    <tr><td><code>lua/vc/messages/config.lua</code></td><td class="tag mod">copy+</td><td>routes without titles; pass-through kinds</td></tr>
+    <tr><td><code>lua/vc/messages/router.lua</code></td><td class="tag mod">copy+</td><td>no spill; catch-all INFO; drop empty</td></tr>
+    <tr><td><code>lua/vc/init.lua</code></td><td class="tag mod">modified</td><td><code>start()</code> sets up notify then messages</td></tr>
+    <tr><td><code>test/notify/record_spec.lua</code>, <code>stack_spec.lua</code>, <code>test/messages/router_spec.lua</code></td><td class="tag new">new</td><td>router spec ported from BeastVim</td></tr>
+    <tr><td><code>docs/CODEMAP/*</code></td><td class="tag mod">modified</td><td>via <code>/update-codemap</code></td></tr>
+  </table>
+</section>
+
+<section data-spec="changes-from-copy">
+  <h2>The four changes beyond copying</h2>
+  <div class="card"><strong>1 Wrap.</strong> BeastVim cards never wrap; here lines wrap to card width, 10 line cap.</div>
+  <div class="card"><strong>2 Narrow fit.</strong> Width is min(80, columns - 2), so 40 columns gives 38.</div>
+  <div class="card"><strong>3 Overflow.</strong> Oldest cards slide out early when the stack would pass the bottom.</div>
+  <div class="card"><strong>4 Everything is a card.</strong> Unmatched kinds become INFO. Prompt kinds (<code>confirm, confirm_sub, return_prompt, number_prompt</code>) stay with ui2 so they can still be answered.</div>
+</section>
+
+<section data-spec="phases">
+  <h2>Phases</h2>
+
+  <div class="card" data-spec="phase-1">
+    <strong>Phase 1: Notify cards</strong> - <code>vim.notify</code> shows stacked cards. <span class="muted">Mergeable alone.</span>
+    <ol>
+      <li data-spec="phase-1-step-1">Copy <code>lua/vc/animate.lua</code> <span class="risk">Low</span></li>
+      <li data-spec="phase-1-step-2">Copy notify core, rename requires, swap View helpers <span class="risk">Low</span></li>
+      <li data-spec="phase-1-step-3">Palette highlights in <code>notify/highlights.lua</code>, refresh on <code>OptionSet background</code> and <code>FocusGained</code> <span class="risk">Medium: two refresh autocmds query the terminal, check no flicker</span></li>
+      <li data-spec="phase-1-step-4">Wrap, narrow fit, overflow eviction <span class="risk">Medium: wide/CJK text, use display width</span></li>
+      <li data-spec="phase-1-step-5">Call <code>notify.setup()</code> from <code>vc.start</code> <span class="risk">Low</span></li>
+      <li data-spec="phase-1-step-6">Tests: record and stack specs <span class="risk">Low</span></li>
+    </ol>
+  </div>
+
+  <div class="card" data-spec="phase-2">
+    <strong>Phase 2: Message capture</strong> - every message becomes a card. <span class="muted">Depends on phase 1.</span>
+    <ol>
+      <li data-spec="phase-2-step-1">Copy messages lib, swap Toast for <code>vc.notify</code> <span class="risk">Medium: ui2 experimental, keep pcall fallback</span></li>
+      <li data-spec="phase-2-step-2">Catch-all routing, pass-through prompts, drop empty and search count <span class="risk">Medium: a missed prompt kind could swallow a prompt, test <code>:s/x/y/c</code></span></li>
+      <li data-spec="phase-2-step-3">Call <code>messages.setup()</code> from <code>vc.start</code> <span class="risk">Low</span></li>
+      <li data-spec="phase-2-step-4">Port router spec to <code>test/harness.lua</code> <span class="risk">Low</span></li>
+    </ol>
+  </div>
+
+  <div class="card" data-spec="phase-3">
+    <strong>Phase 3: Verify and document</strong>
+    <ol>
+      <li data-spec="phase-3-step-1">Run PM scenarios 1-6 in a real terminal; check <code>reset_window</code> (<code>silent! only</code>) leaves no stale or lost cards <span class="risk">Medium</span></li>
+      <li data-spec="phase-3-step-2">Run <code>/update-codemap</code> <span class="risk">Low</span></li>
+    </ol>
+  </div>
+</section>
+
+<section data-spec="testing-strategy">
+  <h2>Testing strategy</h2>
+  <ul>
+    <li><strong>Headless:</strong> <code>make test</code>, <code>make lint</code> with the new specs.</li>
+    <li><strong>Bench:</strong> n/a, not a hot path.</li>
+    <li><strong>Manual:</strong> PM scenarios 1-6 via <code>NVIM_APPNAME=VimClaude nvim</code>: <code>x</code> in preview, burst of <code>vim.notify</code>, 40-column resize, <code>/zzz</code>, light/dark flip, and <code>:s/x/y/c</code> still prompting.</li>
+  </ul>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul class="ok">
+    <li>E21 shows as a top-right card; no "Press ENTER" anywhere.</li>
+    <li>Finder never pushed or covered; typing uninterrupted.</li>
+    <li>Cards colored by level from the terminal palette, light and dark.</li>
+    <li>Stacking closes gaps; more than 10 lines cut at 10; 40 columns gives a readable 38-wide card.</li>
+    <li>Fast-event messages show with no error; confirm prompts still work.</li>
+    <li><code>make test</code> and <code>make lint</code> pass.</li>
+  </ul>
+</section>
+</main>
+</body>
+</html>

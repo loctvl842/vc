@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec: notify-init</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a;
+          --err:#c0392b; --warn:#b7791f; --info:#2b6cb0; --mock:#f1eee7; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c;
+            --err:#f08070; --warn:#e5b567; --info:#7fb2ee; --mock:#12110f; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:32px 0; }
+  h1 { margin:0 0 8px; } h2 { margin:0 0 12px; border-bottom:1px solid var(--line); padding-bottom:6px; }
+  h3 { margin:16px 0 6px; font-size:1rem; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:10px 0; }
+  .muted { color:var(--muted); }
+  pre.mock { background:var(--mock); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto;
+             font:13px/1.35 ui-monospace, Menlo, monospace; margin:6px 0 14px; }
+  .lbl { font-size:.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--accent); font-weight:600; }
+  .e { color:var(--err); } .w { color:var(--warn); } .i { color:var(--info); }
+  li { margin:3px 0; }
+  .steps { counter-reset:s; list-style:none; padding:0; }
+  .steps li { counter-increment:s; background:var(--card); border:1px solid var(--line); border-radius:8px; padding:8px 12px; margin:8px 0; }
+  .steps li::before { content:"Step " counter(s); display:block; font-size:.75rem; color:var(--accent); font-weight:600; }
+  .ok { list-style:none; padding-left:0; } .ok li::before { content:"\2610  "; color:var(--accent); }
+</style>
+</head>
+<body>
+<main>
+<header data-spec="summary">
+  <h1>notify-init</h1>
+  <p>Every message Neovim would print at the bottom of the screen (errors, warnings, info) becomes a small card in the top right, in BeastVim's notification style. The "Press ENTER or type command to continue" prompt never appears.</p>
+</header>
+
+<section data-spec="problem">
+  <h2>Problem</h2>
+  <p>VimClaude has no message area. A stray key in the read-only preview makes Neovim stop everything:</p>
+  <pre class="mock"><span class="e">E21: Cannot make changes, 'modifiable' is off</span>
+Press ENTER or type command to continue</pre>
+  <p>The finder or Claude Code is pushed up or covered, nothing responds until Enter, then the screen redraws. Same for any other error or warning.</p>
+  <p class="muted" data-spec="why-now">Why now: the finder and Claude screen are meant to be uninterrupted, and messages are the only feedback the user gets, so they need a place that does not take over the screen.</p>
+</section>
+
+<section data-spec="target-behavior">
+  <h2>Target behavior</h2>
+
+  <div data-spec="state-1">
+    <div class="lbl">State 1 - one error, user is in the finder</div>
+<pre class="mock">┌ Sessions ─────────────────────────────────┬──────────────────────────────┐
+│ &gt; fix                                     │  ┌────────────────────────────┐
+│                                           │  │  <span class="e">ERROR</span>                     │
+│ ▌ Fix flaky login test                    │  │ E21: Cannot make changes,  │
+│   ~/work/api-server - main                │  │ 'modifiable' is off        │
+│                                           │  └────────────────────────────┘
+│   Add retry to the sync job               │  (preview content continues)
+│   ~/work/sync - feat/retry                │
+└───────────────────────────────────────────┴──────────────────────────────┘
+(no "Press ENTER" line, the bottom of the screen is untouched)</pre>
+  </div>
+
+  <div data-spec="state-2">
+    <div class="lbl">State 2 - several messages (newest at the bottom of the stack)</div>
+<pre class="mock">                                          ┌────────────────────────────────┐
+                                          │  <span class="w">WARN</span>                          │
+                                          │ Hit BOTTOM, continuing at TOP  │
+                                          └────────────────────────────────┘
+                                          ┌────────────────────────────────┐
+                                          │  <span class="e">ERROR</span>                         │
+                                          │ E21: Cannot make changes,      │
+                                          │ 'modifiable' is off            │
+                                          └────────────────────────────────┘</pre>
+  </div>
+
+  <div data-spec="state-3">
+    <div class="lbl">State 3 - a long message (more than 10 lines)</div>
+<pre class="mock">                                          ┌────────────────────────────────┐
+                                          │  <span class="e">ERROR</span>                         │
+                                          │ Error executing Lua callback:  │
+                                          │ ...line 1                      │
+                                          │ ...line 2                      │
+                                          │ ... (first 10 lines only)      │
+                                          └────────────────────────────────┘</pre>
+  </div>
+
+  <div data-spec="state-4">
+    <div class="lbl">State 4 - narrow terminal (fewer than 84 columns)</div>
+    <p>Cards shrink to fit: never wider than the terminal minus a 2-column margin on the right, text wraps inside.</p>
+  </div>
+
+  <div class="card" data-spec="card-details">
+    <strong>Card details</strong>
+    <ul>
+      <li>Title row: icon + level word (<span class="e">ERROR</span>, <span class="w">WARN</span>, <span class="i">INFO</span>), colored from the terminal's own palette.</li>
+      <li>Body: message text, wrapped to the card width. Up to 80 columns wide, drawn above finder, preview and Claude Code.</li>
+      <li>Fades in, stays a few seconds, slides out to the right. Cards below move up to close the gap.</li>
+    </ul>
+  </div>
+</section>
+
+<section data-spec="scenarios">
+  <h2>Scenarios</h2>
+
+  <div data-spec="scenario-1">
+    <h3>1 - A key tries to edit the read-only preview (the reported case)</h3>
+    <ol class="steps">
+      <li>In the finder the user moves into the preview and presses <code>x</code>. Nothing moves or gets covered. A card fades in at the top right: "ERROR E21: Cannot make changes, 'modifiable' is off".</li>
+      <li>The user keeps typing (no Enter needed). Keys work as before; the card does not take focus.</li>
+      <li>About 3 seconds later the card slides out and disappears.</li>
+    </ol>
+  </div>
+
+  <div data-spec="scenario-2">
+    <h3>2 - Several messages at once</h3>
+    <ol class="steps">
+      <li>Two problems happen within a second. Two cards appear one after the other, staggered, the older on top.</li>
+      <li>They disappear oldest first; the remaining card moves up.</li>
+    </ol>
+  </div>
+
+  <div data-spec="scenario-3">
+    <h3>3 - Message while Claude Code is on screen</h3>
+    <ol class="steps">
+      <li>Claude Code runs full screen and Neovim raises a warning. A card shows top right over the output. Claude Code keeps focus and the user's typing.</li>
+      <li>The card expires and slides out; Claude Code output is unchanged underneath.</li>
+    </ol>
+  </div>
+
+  <div data-spec="scenario-4">
+    <h3>4 - The same message repeats</h3>
+    <ol class="steps">
+      <li>The user presses <code>x</code> in the preview five times quickly. Five cards appear, stacked from the top.</li>
+      <li>If the stack would run past the bottom of the terminal, only the newest cards that fit are kept; older ones slide out early.</li>
+    </ol>
+  </div>
+
+  <div data-spec="scenario-5">
+    <h3>5 - Very small terminal</h3>
+    <ol class="steps">
+      <li>The terminal is 40 columns wide and a message arrives. The card is 38 columns wide with wrapped text, still readable.</li>
+    </ol>
+  </div>
+
+  <div data-spec="scenario-6">
+    <h3>6 - Message with nothing to say</h3>
+    <ol class="steps">
+      <li>Neovim emits an empty message, or a search count like "[3/12]". No card appears (the finder shows its own counts).</li>
+    </ol>
+  </div>
+</section>
+
+<section data-spec="behavior-rules">
+  <h2>Behavior rules</h2>
+  <ul>
+    <li>Every message Neovim would print at the bottom goes to a card instead: errors (E-numbered, Lua errors, failed commands), warnings and plain info. Nothing prints in the old place; the "Press ENTER" prompt never appears.</li>
+    <li>Level: errors are ERROR, warnings are WARN, everything else is INFO.</li>
+    <li>Multi-line messages keep their line breaks; more than 10 lines are cut after the 10th.</li>
+    <li>Notices from anything else in the editor (a plugin, a background task) use the same cards.</li>
+    <li>Cards never take focus and never steal keys.</li>
+    <li>A card stays about 3 seconds. If the user clicks into one with the mouse, it stays until focus leaves, then goes 2 seconds later.</li>
+    <li>Many cards in quick succession are staggered so they do not all pop in at once.</li>
+    <li>Background messages (timers, job output) show safely and never cause an error themselves.</li>
+    <li>Colors follow the terminal palette and update on light/dark switch, like the finder. No fixed color values.</li>
+    <li>Cards must not flicker or redraw the finder when they appear or disappear.</li>
+    <li>Search: a failed search shows one card "Pattern not found: &lt;pattern&gt;" (WARN), not two; wrapping shows "Hit BOTTOM, continuing at TOP" (or the reverse).</li>
+  </ul>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul class="ok">
+    <li>Pressing an editing key in the read-only preview shows the E21 text as a card in the top right.</li>
+    <li>"Press ENTER or type command to continue" never appears, in the finder or in Claude Code.</li>
+    <li>The finder (list, input, preview) is never pushed or covered by message text.</li>
+    <li>Typing continues uninterrupted while a card is visible.</li>
+    <li>Cards are colored by level and use the terminal palette in light and dark.</li>
+    <li>Several messages stack without overlapping and close the gap when one leaves.</li>
+    <li>Messages longer than 10 lines are cut at 10.</li>
+    <li>A narrow terminal still shows a readable card.</li>
+    <li>A background message (e.g. from a timer) shows as a card with no error.</li>
+  </ul>
+</section>
+
+<section data-spec="out-of-scope">
+  <h2>Out of scope</h2>
+  <ul>
+    <li>A message history window or <code>:messages</code>-style browser: cards are fire-and-forget (deferred until needed).</li>
+    <li>A key to dismiss all cards at once: cards expire on their own.</li>
+    <li>Per-message routing rules (hide certain messages): everything shows, except empty messages and search counts.</li>
+    <li>Sounds, OS-level notifications, or notifications from Claude Code's own output.</li>
+    <li>Command-line input (<code>:</code> commands): VimClaude does not use a command line.</li>
+  </ul>
+</section>
+</main>
+</body>
+</html>
