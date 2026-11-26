@@ -4,6 +4,8 @@
 local M = {}
 
 local MAX_TITLE = 120
+local MAX_RECAP = 400
+local RECAP_HINT = " (disable recaps in /config)" -- Claude Code appends this to its first recaps
 
 --- Days since the unix epoch for a proleptic Gregorian date.
 local function days_from_civil(y, m, d)
@@ -70,6 +72,33 @@ function M.prompt_of(line)
 	return user_text(o)
 end
 
+--- Recap text of a transcript line, or nil when the line is not a recap. Claude Code writes the automatic recap
+--- as an `away_summary` system record and `/recap` as the stdout of a local command.
+---@param line string
+---@return string?
+local function recap_of(line)
+	local content
+	if line:find('"subtype":"away_summary"', 1, true) then
+		local o = decode(line)
+		content = o and o.content
+	elseif line:find('"subtype":"local_command"', 1, true) and line:find('"command":"recap"', 1, true) then
+		local o = decode(line)
+		content = o and o.commandRun and o.commandRun.command == "recap" and o.content
+		content = type(content) == "string" and content:match("^<local%-command%-stdout>(.-)</local%-command%-stdout>$")
+	end
+	if type(content) ~= "string" then
+		return nil
+	end
+	if content:sub(-#RECAP_HINT) == RECAP_HINT then
+		content = content:sub(1, -#RECAP_HINT - 1)
+	end
+	content = content:gsub("%s+", " "):gsub("^ ", ""):gsub(" $", "")
+	if content == "" then
+		return nil
+	end
+	return vim.fn.strcharpart(content, 0, MAX_RECAP)
+end
+
 --- Project name from a folder path.
 local function project_of(cwd, dirname)
 	if cwd and cwd ~= "" then
@@ -84,6 +113,7 @@ end
 ---@field title string
 ---@field project string
 ---@field cwd string?
+---@field recap string? latest session recap, when Claude Code wrote one
 ---@field last_ts integer
 ---@field msg_count integer
 ---@field size integer
@@ -97,7 +127,7 @@ end
 function M.parse(text, meta)
 	local id = vim.fs.basename(meta.path):gsub("%.jsonl$", "")
 	local dirname = vim.fs.basename(vim.fs.dirname(meta.path))
-	local cwd, ai_title, first_prompt, last_ts_line
+	local cwd, ai_title, first_prompt, last_ts_line, recap
 	local count = 0
 
 	for line in text:gmatch("[^\n]+") do
@@ -109,6 +139,8 @@ function M.parse(text, meta)
 			if o and o.type == "ai-title" and type(o.aiTitle) == "string" and o.aiTitle ~= "" then
 				ai_title = o.aiTitle
 			end
+		elseif line:find('"type":"system"', 1, true) then
+			recap = recap_of(line) or recap
 		else
 			local is_user = line:find('"type":"user"', 1, true)
 			local is_asst = not is_user and line:find('"type":"assistant"', 1, true)
@@ -139,6 +171,7 @@ function M.parse(text, meta)
 		title = ai_title or first_prompt or "(untitled)",
 		project = project_of(cwd, dirname),
 		cwd = cwd,
+		recap = recap,
 		last_ts = last_ts,
 		msg_count = count,
 		size = meta.size,

@@ -42,6 +42,23 @@ function M.title(t)
 	return j({ type = "ai-title", aiTitle = t, sessionId = "s" })
 end
 
+function M.system(subtype, content, extra)
+	return j(vim.tbl_extend("force", {
+		type = "system",
+		subtype = subtype,
+		content = content,
+		timestamp = "2026-11-26T10:10:00.000Z",
+		sessionId = "s",
+	}, extra or {}))
+end
+
+--- The record `/recap` leaves in a transcript.
+function M.recap_command(text)
+	return M.system("local_command", "<local-command-stdout>" .. text .. "</local-command-stdout>", {
+		commandRun = { command = "recap", args = "" },
+	})
+end
+
 --- Make a store with the standard sessions; returns root plus useful paths.
 function M.store()
 	local root = tmpdir()

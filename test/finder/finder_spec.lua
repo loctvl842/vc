@@ -23,6 +23,7 @@ local ROWS = {
 	row("c", "Add SSO login to admin panel", "web-app", 5 * 86400),
 	row("d", "Old prototype", "proto", 90 * 86400, false),
 }
+ROWS[2].recap = "Roadmap outline is drafted; next step is sending it to Dana."
 
 local function titles(session)
 	local out = {}
@@ -176,6 +177,42 @@ describe("finder", function()
 		end, lines)
 		truthy(#gone == 1 or s.view.list._visible_last < 5, "folder gone marker present when the row is visible")
 		s:close()
+	end)
+
+	it("shows the full location, and a recap row only for sessions that have one", function()
+		local s = open()
+		local lines = vim.api.nvim_buf_get_lines(s.view.list.buf, 0, -1, false)
+		eq("  /x/api-server", lines[3]:match("^(.-)%s%s+%S+ ago") or lines[3])
+		eq("Draft Q4 roadmap outline", lines[4])
+		truthy(lines[5]:find("/x/notes", 1, true))
+		truthy(vim.startswith(lines[6], "  Roadmap outline is drafted;"), lines[6])
+		s:close()
+	end)
+
+	it("searches the recap, and highlights the match on the recap row", function()
+		local s = open()
+		type_query(s, "'dana")
+		eq({ "Draft Q4 roadmap outline" }, titles(s))
+		local item = s.query.matched[1]
+		local lines, ranges = source.format(item, 80)
+		eq(4, #ranges)
+		eq(3, ranges[1].row)
+		eq("dana", lines[3][1].text:sub(ranges[1].s + 1, ranges[4].e):lower():gsub("[^dana]", ""))
+		type_query(s, "rmpldanta") -- scattered letters do not match recap prose
+		eq({}, titles(s))
+		s:close()
+	end)
+
+	it("keeps the end of a long location and maps match highlights onto it", function()
+		local r = row("z", "Deploy", "very-long-project-name", 60)
+		r.cwd = "/Users/someone/work/clients/acme/services/very-long-project-name"
+		local item = source.items({ r }, false)[1]
+		item.positions = { #"Deploy" + 2 + #r.cwd } -- the last byte of the location
+		local lines, ranges = source.format(item, 50)
+		local shown = lines[2][1].text
+		truthy(vim.startswith(shown, "  …"), shown)
+		eq("e", shown:sub(ranges[1].s + 1, ranges[1].e))
+		eq(true, vim.endswith(shown, "very-long-project-name"))
 	end)
 
 	it("the preview follows the highlighted row", function()

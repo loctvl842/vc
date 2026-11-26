@@ -63,6 +63,7 @@ function M.apply()
 		ListMatch = c.match,
 		ListTitle = {},
 		ListDim = c.dim,
+		ListRecap = vim.tbl_extend("force", c.dim, { italic = true }),
 		ListNew = c.green,
 		ListGone = c.red,
 		Hint = c.dim,

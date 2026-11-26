@@ -38,6 +38,46 @@ describe("scan", function()
 		eq("only prompt", r.title)
 	end)
 
+	it("has no recap unless Claude Code wrote one", function()
+		eq(nil, row(store, "titled").recap)
+	end)
+
+	describe("recap", function()
+		local function scan_lines(lines)
+			local path = tmpdir() .. "/s.jsonl"
+			write_file(path, lines)
+			return scan.scan_file(path, vim.uv.fs_stat(path))
+		end
+
+		it("reads the output of /recap, latest wins, on one line", function()
+			local r = scan_lines({
+				F.user("hi", "2026-11-26T10:00:00.000Z", "/w"),
+				F.recap_command("old recap"),
+				F.recap_command("You are fixing the\nlogin test.   Next: push."),
+			})
+			eq("You are fixing the login test. Next: push.", r.recap)
+		end)
+
+		it("reads the automatic away_summary and drops the settings hint", function()
+			local r = scan_lines({
+				F.user("hi", "2026-11-26T10:00:00.000Z", "/w"),
+				F.system("away_summary", "Pushing main next. (disable recaps in /config)"),
+			})
+			eq("Pushing main next.", r.recap)
+		end)
+
+		it("ignores the output of other local commands", function()
+			local r = scan_lines({
+				F.user("hi", "2026-11-26T10:00:00.000Z", "/w"),
+				F.system("local_command", "<local-command-stdout>Resume cancelled</local-command-stdout>", {
+					commandRun = { command = "resume", args = "" },
+				}),
+				F.recap_command(""),
+			})
+			eq(nil, r.recap)
+		end)
+	end)
+
 	it("parses timestamps as UTC epoch", function()
 		eq(0, scan.parse_ts("1970-01-01T00:00:00Z"))
 		eq(1767225600, scan.parse_ts("2026-01-01T00:00:00.000Z"))
