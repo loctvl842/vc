@@ -92,6 +92,63 @@ describe("transcript", function()
 		truthy(found)
 	end)
 
+	it("shows an edit as a colored diff under its call", function()
+		local rec = {
+			structuredPatch = {
+				{ oldStart = 3, oldLines = 2, newStart = 3, newLines = 2, lines = { " keep", "-old", "+new" } },
+			},
+		}
+		local src = table.concat({
+			F.assistant(
+				{ { type = "tool_use", id = "a", name = "Edit", input = { file_path = "/x/a.lua" } } },
+				"t",
+				"/x"
+			),
+			F.tool_result("t", nil, { id = "a", text = "updated", rec = rec }),
+		}, "\n")
+		local lines, _, marks = T.render(src)
+		eq({
+			"● Edit(a.lua)",
+			"  ⎿  Updated with 1 addition and 1 removal",
+			"     3  keep",
+			"     4 -old",
+			"     4 +new",
+		}, lines)
+		local hl = {}
+		for _, m in ipairs(marks) do
+			hl[m.l .. m.hl] = m
+		end
+		truthy(hl["4DiffDelete"].line)
+		truthy(hl["5DiffAdd"].line)
+		eq({ 5, 8 }, { hl["5DiffAddSign"].c, hl["5DiffAddSign"].e })
+	end)
+
+	it("folds a very long diff after diff_lines", function()
+		local ls = {}
+		for i = 1, 40 do
+			ls[i] = "+l" .. i
+		end
+		local rec = { structuredPatch = { { oldStart = 1, oldLines = 0, newStart = 1, newLines = 40, lines = ls } } }
+		local src = table.concat({
+			F.assistant({ { type = "tool_use", id = "a", name = "Edit", input = {} } }, "t"),
+			F.tool_result("t", nil, { id = "a", text = "ok", rec = rec }),
+		}, "\n")
+		local lines, folds = T.render(src)
+		eq(1, #folds)
+		eq("     … +16 lines", folds[1].label)
+		eq(#lines, folds[1].stop)
+	end)
+
+	it("falls back to the result text when an error replaces the edit", function()
+		local rec =
+			{ structuredPatch = { { oldStart = 1, oldLines = 1, newStart = 1, newLines = 1, lines = { "-a", "+b" } } } }
+		local src = table.concat({
+			F.assistant({ { type = "tool_use", id = "a", name = "Edit", input = {} } }, "t"),
+			F.tool_result("t", nil, { id = "a", text = "String to replace not found", is_error = true, rec = rec }),
+		}, "\n")
+		eq({ "● Edit", "  ⎿  String to replace not found" }, (T.render(src)))
+	end)
+
 	it("folds thinking behind a one-line label", function()
 		local src = table.concat({
 			F.assistant({ { type = "thinking", thinking = "hmm\nok" }, { type = "text", text = "on it" } }, "t"),

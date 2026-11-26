@@ -100,4 +100,71 @@ function M.result_lines(res)
 	return lines
 end
 
+--- A file edit as a diff, from the patch Claude Code stored with the result (Edit, MultiEdit, Write).
+--- Lines read `<line number> <+|-| ><text>`; marks are relative to `lines`.
+---@param rec table? the record's `toolUseResult`
+---@return { summary: string, lines: string[], marks: VC.Mark[] }?
+function M.diff(rec)
+	if type(rec) ~= "table" then
+		return
+	end
+	local hunks = rec.structuredPatch
+	if rec.type == "create" and type(rec.content) == "string" and (not hunks or #hunks == 0) then
+		local added = M.split(rec.content)
+		for i, l in ipairs(added) do
+			added[i] = "+" .. l
+		end
+		hunks = { { oldStart = 0, newStart = 1, oldLines = 0, newLines = #added, lines = added } }
+	end
+	if type(hunks) ~= "table" or #hunks == 0 then
+		return
+	end
+	local width = 1
+	for _, h in ipairs(hunks) do
+		width = math.max(width, #tostring(math.max(h.oldStart + h.oldLines, h.newStart + h.newLines)))
+	end
+	local lines, marks, added, removed = {}, {}, 0, 0
+	for i, h in ipairs(hunks) do
+		if i > 1 then
+			lines[#lines + 1] = string.rep(" ", width) .. " …"
+			marks[#marks + 1] = { l = #lines, hl = "ToolArgs", line = true }
+		end
+		local old_no, new_no = h.oldStart, h.newStart
+		for _, raw in ipairs(h.lines) do
+			local sign, no = raw:sub(1, 1), nil
+			if sign == "+" then
+				no, new_no, added = new_no, new_no + 1, added + 1
+			elseif sign == "-" then
+				no, old_no, removed = old_no, old_no + 1, removed + 1
+			else
+				no, old_no, new_no = old_no, old_no + 1, new_no + 1
+			end
+			lines[#lines + 1] = string.format("%" .. width .. "d %s", no, M.clean(raw))
+			local l, gutter = #lines, width + 2
+			if sign == "+" then
+				marks[#marks + 1] = { l = l, hl = "DiffAdd", line = true }
+				marks[#marks + 1] = { l = l, c = 0, e = gutter, hl = "DiffAddSign" }
+			elseif sign == "-" then
+				marks[#marks + 1] = { l = l, hl = "DiffDelete", line = true }
+				marks[#marks + 1] = { l = l, c = 0, e = gutter, hl = "DiffDeleteSign" }
+			else
+				marks[#marks + 1] = { l = l, c = 0, e = gutter, hl = "ToolArgs" }
+			end
+		end
+	end
+	local function count(n, word)
+		return n .. " " .. word .. (n == 1 and "" or "s")
+	end
+	local parts = {}
+	if added > 0 then
+		parts[#parts + 1] = count(added, "addition")
+	end
+	if removed > 0 then
+		parts[#parts + 1] = count(removed, "removal")
+	end
+	local summary = rec.type == "create" and ("Wrote " .. count(added, "line"))
+		or ("Updated with " .. (#parts > 0 and table.concat(parts, " and ") or "no changes"))
+	return { summary = summary, lines = lines, marks = marks }
+end
+
 return M

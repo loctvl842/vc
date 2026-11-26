@@ -208,6 +208,35 @@ local function render_result(out, res)
 	end
 end
 
+--- A diff under its call: the summary on the result line, the changed lines below, long diffs folded.
+---@param out VC.Out
+---@param d { summary: string, lines: string[], marks: VC.Mark[] }
+local function render_diff(out, d)
+	out:whole(out:add(RESULT_FIRST .. d.summary), "Result")
+	local first = #out.lines
+	local shown = #d.lines
+	if shown - config.preview.diff_lines >= 2 then
+		shown = config.preview.diff_lines
+	end
+	for i, text in ipairs(d.lines) do
+		out:add(RESULT_REST .. text)
+		if i == shown + 1 then
+			out.folds[#out.folds + 1] = {
+				start = first + i,
+				stop = first + #d.lines,
+				label = RESULT_REST .. "… +" .. (#d.lines - shown) .. " lines",
+			}
+		end
+	end
+	for _, m in ipairs(d.marks) do
+		local c = { l = first + m.l, hl = m.hl, line = m.line }
+		if m.c then
+			c.c, c.e = m.c + #RESULT_REST, m.e + #RESULT_REST
+		end
+		out.marks[#out.marks + 1] = c
+	end
+end
+
 ---@param b VC.Block
 function Builder:render_block(b)
 	local out = self.out
@@ -235,7 +264,10 @@ function Builder:render_block(b)
 		if args ~= "" then
 			out:mark(l, #REPLY + #name, #REPLY + #name + #args, "ToolArgs")
 		end
-		if b.result then
+		local diff = b.result and not b.result.is_error and toolline.diff(b.result.rec)
+		if diff then
+			render_diff(out, diff)
+		elseif b.result then
 			render_result(out, b.result)
 		end
 	elseif b.kind == "result" then
