@@ -25,7 +25,9 @@ describe("code", function()
 
 	it("resolves language aliases and is case blind", function()
 		truthy(#code.marks("local x = 1", "Lua") > 0)
-		truthy(#code.marks("echo 'hi'", "sh") > 0 or not pcall(vim.treesitter.language.add, "bash"))
+		-- `language.add` reports a missing parser by returning nil, not by raising.
+		local has_bash = pcall(vim.treesitter.language.add, "bash") and vim.treesitter.language.add("bash")
+		truthy(#code.marks("echo 'hi'", "sh") > 0 or not has_bash)
 	end)
 
 	it("gives no marks for an unknown language or none", function()
