@@ -76,6 +76,7 @@ function M.apply()
 		Border = c.border,
 		InputTitle = bold(c.accent),
 		Spinner = c.cyan,
+		Field = bold(c.cyan),
 		ListSelectionPrefix = c.accent,
 		ListMatch = c.match,
 		ListTitle = {},
