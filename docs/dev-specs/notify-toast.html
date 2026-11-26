@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dev spec: notify-toast</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a;
+          --copy:#2f7d4f; --new:#b4540a; --mod:#2b6cb0; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c;
+            --copy:#6fcf97; --new:#e08a3c; --mod:#7fb2ee; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:900px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:32px 0; }
+  h1 { margin:0 0 8px; } h2 { margin:0 0 12px; border-bottom:1px solid var(--line); padding-bottom:6px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 16px; margin:10px 0; }
+  .muted { color:var(--muted); } .risk { font-size:.8rem; color:var(--muted); }
+  code { font:13px ui-monospace, Menlo, monospace; }
+  table { width:100%; border-collapse:collapse; font-size:.92rem; display:block; overflow-x:auto; }
+  th, td { text-align:left; padding:6px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .tag { font-size:.72rem; font-weight:700; text-transform:uppercase; }
+  .copy { color:var(--copy); } .new { color:var(--new); } .mod { color:var(--mod); }
+  svg { width:100%; height:auto; color:var(--fg); }
+  .box { fill:var(--card); stroke:var(--line); } .boxc { fill:var(--card); stroke:var(--copy); stroke-width:2; }
+  .boxn { fill:var(--card); stroke:var(--new); stroke-width:2; } .t { fill:currentColor; font:12px ui-monospace, Menlo, monospace; }
+  .ar { stroke:var(--muted); fill:none; stroke-width:1.5; }
+  .ok { list-style:none; padding-left:0; } .ok li::before { content:"\2610  "; color:var(--accent); }
+</style>
+</head>
+<body>
+<main>
+<header data-spec="summary">
+  <h1>notify-toast - dev spec</h1>
+  <p>Copy BeastVim's toast lib as <code>vc.toast</code> (no progress), add its colors to the shared notify highlights, and make <code>vc.notify.notify</code> send INFO to the toast while WARN and ERROR stay cards.</p>
+  <p class="muted">PM spec: <code>docs/pm-specs/notify-toast.md</code></p>
+</header>
+
+<section data-spec="context">
+  <h2>Context</h2>
+  <p>Every message is a boxed top-right card. Routine INFO needs a lighter one-line bottom-right style with repeat merging. <code>vc.notify.notify</code> is already the single entry for <code>vim.notify</code> and the ui2 message routing, so one level check is enough; callers do not change.</p>
+</section>
+
+<section data-spec="flow">
+  <h2>How it flows</h2>
+  <svg viewBox="0 0 860 200" role="img" aria-label="Dispatch by level">
+    <title>Dispatch by level</title>
+    <rect id="n-callers" class="box" x="10" y="75" width="170" height="50" rx="6"/><text class="t" x="22" y="97">vim.notify / ui2 route</text><text class="t" x="22" y="113">(unchanged callers)</text>
+    <rect id="n-notify" class="boxn" x="240" y="75" width="170" height="50" rx="6"/><text class="t" x="252" y="97">vc.notify.notify</text><text class="t" x="252" y="113">level check (new)</text>
+    <rect id="n-toast" class="boxc" x="500" y="20" width="170" height="50" rx="6"/><text class="t" x="512" y="42">vc.toast (copy)</text><text class="t" x="512" y="58">INFO: bottom right</text>
+    <rect id="n-card" class="box" x="500" y="130" width="170" height="50" rx="6"/><text class="t" x="512" y="152">card stack</text><text class="t" x="512" y="168">WARN, ERROR: top right</text>
+    <path class="ar" d="M180 100H240M410 90L500 48M410 110L500 150"/>
+    <text class="t" x="700" y="48">merge xN, fade</text><text class="t" x="700" y="152">wrap, slide</text>
+  </svg>
+  <p class="muted">Green = copied from BeastVim, orange = new or changed.</p>
+</section>
+
+<section data-spec="research">
+  <h2>Research</h2>
+  <div class="card"><strong>Repo.</strong> Searched <code>notify.notify, vim.notify, highlights, VimResized</code>. One dispatch point exists; <code>vc.animate</code>, <code>vc.finder.view</code>, <code>vc.theme</code> and the highlights refresh are reusable. Existing <code>test/notify/stack_spec.lua</code> uses INFO for cards and must move to WARN. <strong>Reuse.</strong></div>
+  <div class="card"><strong>BeastVim toast.</strong> Self-contained except View/animate/Theme. <strong>Decision: Reuse (copy)</strong>; Build only dispatch, shared highlights, stack cap, resize relayout. Not copied: progress, health, demo test, <code>update</code>/<code>dismiss_id</code>, <code>segments</code>.</div>
+</section>
+
+<section data-spec="architecture-changes">
+  <h2>Files</h2>
+  <table>
+    <tr><th>Path</th><th></th><th>What</th></tr>
+    <tr><td><code>lua/vc/toast/config.lua</code></td><td class="tag mod">copy+</td><td>no progress; timeout 2200, 60% max width</td></tr>
+    <tr><td><code>lua/vc/toast/record.lua</code></td><td class="tag copy">copy</td><td>one-line record, count badge, merge key</td></tr>
+    <tr><td><code>lua/vc/toast/state.lua</code></td><td class="tag copy">copy</td><td>unchanged</td></tr>
+    <tr><td><code>lua/vc/toast/stack.lua</code></td><td class="tag mod">copy+</td><td>drop <code>update</code>; stack cap; <code>relayout</code></td></tr>
+    <tr><td><code>lua/vc/toast/ui.lua</code></td><td class="tag mod">copy+</td><td>View helpers renamed, <code>VCToast*</code> groups, no segments</td></tr>
+    <tr><td><code>lua/vc/toast/init.lua</code></td><td class="tag mod">copy+</td><td>setup, toast, dismiss, <code>VimResized</code></td></tr>
+    <tr><td><code>lua/vc/notify/highlights.lua</code></td><td class="tag mod">modified</td><td>adds <code>VCToast*</code> groups, one palette refresh for both</td></tr>
+    <tr><td><code>lua/vc/notify/init.lua</code></td><td class="tag mod">modified</td><td>INFO to toast; setup and dismiss cover both</td></tr>
+    <tr><td><code>test/notify/stack_spec.lua</code></td><td class="tag mod">modified</td><td>cards use WARN</td></tr>
+    <tr><td><code>test/toast/record_spec.lua</code>, <code>stack_spec.lua</code>, <code>test/notify/dispatch_spec.lua</code></td><td class="tag new">new</td><td>record, stack, dispatch</td></tr>
+    <tr><td><code>docs/CODEMAP/*</code></td><td class="tag mod">modified</td><td>via <code>/update-codemap</code></td></tr>
+  </table>
+</section>
+
+<section data-spec="phases">
+  <h2>Phases</h2>
+
+  <div class="card" data-spec="phase-1">
+    <strong>Phase 1: Toast lib</strong> - copy and recolor, nothing routes to it yet. <span class="muted">Mergeable alone.</span>
+    <ol>
+      <li data-spec="phase-1-step-1">Copy toast core into <code>lua/vc/toast/</code>, rename requires, remove progress <span class="risk">Low</span></li>
+      <li data-spec="phase-1-step-2">Add <code>VCToast*</code> groups to <code>notify/highlights.lua</code> <span class="risk">Low</span></li>
+      <li data-spec="phase-1-step-3">Stack cap and <code>VimResized</code> relayout <span class="risk">Medium: width changes on re-render, check anchor and column</span></li>
+      <li data-spec="phase-1-step-4">Tests: record and stack <span class="risk">Low</span></li>
+    </ol>
+  </div>
+
+  <div class="card" data-spec="phase-2">
+    <strong>Phase 2: Dispatch</strong> - INFO to toast, WARN/ERROR stay cards.
+    <ol>
+      <li data-spec="phase-2-step-1">Level check in <code>vc.notify.notify</code>; setup and dismiss cover both <span class="risk">Low</span></li>
+      <li data-spec="phase-2-step-2">Move card specs to WARN; add dispatch spec <span class="risk">Low</span></li>
+    </ol>
+  </div>
+
+  <div class="card" data-spec="phase-3">
+    <strong>Phase 3: Verify and document</strong>
+    <ol>
+      <li data-spec="phase-3-step-1">PM scenarios 1-7 in tmux; check the toast over the finder footer border and after Enter into Claude Code <span class="risk">Medium</span></li>
+      <li data-spec="phase-3-step-2"><code>/update-codemap</code> <span class="risk">Low</span></li>
+    </ol>
+  </div>
+</section>
+
+<section data-spec="testing-strategy">
+  <h2>Testing strategy</h2>
+  <ul>
+    <li><strong>Headless:</strong> <code>make test</code>, <code>make lint</code> with new and updated specs.</li>
+    <li><strong>Bench:</strong> n/a.</li>
+    <li><strong>Manual:</strong> PM scenarios 1-7 in tmux: bottom-right line, <code>x3</code> merge, ellipsis at 40 columns, WARN card, light/dark flip.</li>
+  </ul>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul class="ok">
+    <li>INFO is one dim line at the bottom right, no box; WARN and ERROR stay top-right cards.</li>
+    <li>Five identical INFO messages show one line with "x5".</li>
+    <li>Multi-line messages on one line; long ones end with an ellipsis; 40 columns stays readable.</li>
+    <li>Colored icon, terminal palette in light and dark; fade in/out; gaps close.</li>
+    <li>Typing uninterrupted; background messages show with no error; no "Press ENTER".</li>
+    <li><code>make test</code> and <code>make lint</code> pass.</li>
+  </ul>
+</section>
+</main>
+</body>
+</html>

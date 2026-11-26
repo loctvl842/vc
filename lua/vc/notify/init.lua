@@ -18,9 +18,11 @@ local M = setmetatable({}, {
 	end,
 })
 
+---@param opts? VC.Notify.Config|{ toast?: VC.Toast.Config }
 function M.setup(opts)
 	require("vc.notify.highlights").setup()
 	config.setup(opts)
+	require("vc.toast").setup(opts and opts.toast)
 	-- Through the callable, so a call from a fast event is scheduled instead of opening windows there.
 	vim.notify = function(...)
 		return M(...)
@@ -35,6 +37,7 @@ end
 
 function M.dismiss()
 	stack.dismiss(state)
+	require("vc.toast").dismiss()
 end
 
 ---@param message string|string[]
@@ -44,6 +47,11 @@ function M.notify(message, level, opts)
 	local level_num = vim.log.levels[config.normalize_level(level or "INFO")]
 	if level_num < config.level then
 		return {}
+	end
+
+	-- Plain information is a quiet toast; warnings and errors are the cards.
+	if level_num == vim.log.levels.INFO then
+		return require("vc.toast").toast(message, level, opts)
 	end
 
 	local record = Record(state.next_id, message, level, opts)
