@@ -42,6 +42,12 @@ local function texts(lines)
 	return out
 end
 
+local function filter_of(text)
+	local filter = require("vc.finder.filter").new()
+	filter:update(text)
+	return filter
+end
+
 local function item_of(r)
 	return source.items({ r }, false)[1]
 end
@@ -424,7 +430,7 @@ describe("finder", function()
 			local done
 			m.run(
 				source.items({ r }, false),
-				{ pattern = "dana" },
+				filter_of("dana"),
 				{ ignorecase = true, smartcase = true },
 				function(matched, st)
 					if st then
