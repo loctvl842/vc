@@ -153,7 +153,7 @@ Enter:  continues from the current directory, notice:
       <div class="step"><div class="do"><b>User</b>Enter</div><div><b>Sees</b>Empty Claude Code, only window, in Neovim's current directory. No project picker</div></div></div></details>
     <details class="scn" data-spec="scenario-3"><summary>3 - Recognize a session from its preview</summary><div class="steps">
       <div class="step"><div class="do"><b>User</b>Highlights a long session (91 messages)</div><div><b>Sees</b>Conversation from its first message</div></div>
-      <div class="step"><div class="do"><b>User</b>Scrolls to the end</div><div><b>Sees</b>Every turn, nothing cut; tool runs shown as one dim line each</div></div>
+      <div class="step"><div class="do"><b>User</b>Scrolls to the end</div><div><b>Sees</b>Every turn, nothing cut; tool calls, results and thinking folded to one line each, openable</div></div>
       <div class="step"><div class="do"><b>User</b>Moves to another row</div><div><b>Sees</b>Preview switches; nothing changed on disk</div></div></div></details>
     <details class="scn" data-spec="scenario-4"><summary>4 - No match</summary><div class="steps">
       <div class="step"><div class="do"><b>User</b>Types "zzz"</div><div><b>Sees</b>"No sessions match", empty preview, Enter does nothing</div></div>
@@ -181,7 +181,7 @@ Enter:  continues from the current directory, notice:
       <li>First row is highlighted on open and after every query change.</li>
       <li>Enter on no rows does nothing.</li>
       <li>Missing project folder: still listed, continued from the current directory with a notice.</li>
-      <li>Preview always shows the whole conversation; tool calls collapse to a dim line.</li>
+      <li>Preview always shows the whole conversation; tool calls, results and thinking start folded (one line each) and can be opened.</li>
       <li>Read-only: no delete, rename, or edit of any session.</li>
       <li>Claude Code opens as the only window.</li>
       <li>Only two screens exist: the finder or Claude Code. No editor view, no command to open the finder by hand.</li>
@@ -198,7 +198,7 @@ Enter:  continues from the current directory, notice:
       <li>"New session" first with an empty query, absent once anything is typed</li>
       <li>Typing narrows by title or project; preview follows the highlighted row</li>
       <li>Preview of a very long session scrolls to its final message</li>
-      <li>Tool calls do not bury the dialogue</li>
+      <li>Tool calls and thinking start folded and can be opened, so they do not bury the dialogue</li>
       <li>Enter on a session opens Claude Code, only window, in that session</li>
       <li>Enter on "New session" opens a fresh session in the current directory</li>
       <li>Deleted-folder session continues from the current directory with a notice</li>

@@ -130,8 +130,10 @@ Step 1: User highlights a long session (91 messages)
   Preview shows the conversation from its first message.
 
 Step 2: User scrolls the preview to the end
-  Every turn is there, nothing cut off. Tool activity shows as one dim line
-  per run of tool calls ("▸ 4 tool calls"), so the dialogue stays readable.
+  Every turn is there, nothing cut off. Tool calls, their results and Claude's
+  thinking are present but folded: each run shows as one line
+  ("▸ 4 tool calls"), and the user can open it to read the detail.
+  The dialogue stays readable.
 
 Step 3: User decides it is the wrong one, moves to another row
   Preview switches. Nothing has been changed on disk.
@@ -205,7 +207,7 @@ Step 3: User picks another session, or presses Esc
 - Enter on a session continues it; Enter on "New session" starts a fresh one in Neovim's current directory.
 - Enter with no rows (no match) does nothing.
 - A session whose project folder is gone is still listed and continued, from the current directory, with a notice.
-- The preview always shows the whole conversation. Tool calls and results collapse to a dim summary line so dialogue stays readable.
+- The preview always shows the whole conversation. Tool calls, tool results and thinking are included but start folded (one summary line each); the user can open and close any fold, so the dialogue stays readable and nothing is hidden for good.
 - The finder is read-only: no delete, rename, or edit of any session, anywhere in the UI.
 - The user only ever sees one of two things: the finder or Claude Code. There is no editor view and no command to open the finder by hand.
 - When the user is not in Claude Code, the finder is showing. Quitting Claude Code (Ctrl-C) shows the finder again automatically, with an empty query and a refreshed list.
@@ -220,7 +222,7 @@ Step 3: User picks another session, or presses Esc
 - [ ] "New session" is first with an empty query, and absent as soon as anything is typed
 - [ ] Typing narrows the list by title or project; the preview follows the highlighted row
 - [ ] The preview of a very long session can be scrolled to its final message
-- [ ] Tool calls do not bury the dialogue in the preview
+- [ ] Tool calls and thinking start folded and can be opened, so they do not bury the dialogue in the preview
 - [ ] Enter on a session opens Claude Code, as the only window, in that session
 - [ ] Enter on "New session" opens a fresh session in the current directory
 - [ ] A session with a deleted folder continues from the current directory with a notice

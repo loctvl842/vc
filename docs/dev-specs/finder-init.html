@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dev Spec: Session Finder</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --ok:#2f7d4f; --warn:#a8650a; --hi:#a1302b; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; --ok:#6cc08f; --warn:#e0a24c; --hi:#ec7a73; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:920px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:36px 0; } h1 { margin:0 0 8px; } h2 { margin:0 0 10px; font-size:1.25rem; }
+  .muted { color:var(--muted); } code { font:.88em ui-monospace, Menlo, monospace; background:color-mix(in srgb, var(--line) 50%, transparent); padding:1px 5px; border-radius:4px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 16px; margin:10px 0; }
+  .card h3 { margin:0 0 4px; font-size:1.02rem; } .card .goal { color:var(--muted); margin:0 0 8px; }
+  .tag { font-size:.72rem; padding:1px 7px; border-radius:99px; border:1px solid var(--line); margin-left:6px; white-space:nowrap; }
+  .Low { color:var(--ok); } .Medium { color:var(--warn); } .High { color:var(--hi); }
+  ol.steps { margin:0; padding-left:20px; } ol.steps li { margin:6px 0; }
+  .meta { color:var(--muted); font-size:.85rem; }
+  table { width:100%; border-collapse:collapse; font-size:.9rem; } th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .table-wrap { overflow-x:auto; }
+  svg { width:100%; height:auto; color:var(--fg); }
+  svg .box { fill:var(--card); stroke:var(--line); stroke-width:1.5; } svg .acc { stroke:var(--accent); } svg text { fill:currentColor; font:13px system-ui, sans-serif; } svg .sm { font-size:11px; fill:var(--muted); }
+  svg .ar { stroke:currentColor; stroke-width:1.5; fill:none; marker-end:url(#a); }
+  .decide { border-left:4px solid var(--accent); }
+  ul.checks { list-style:none; padding-left:0; } ul.checks li::before { content:"\2610  "; color:var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <header data-spec="summary">
+    <h1>Session Finder - Dev Spec</h1>
+    <p>VimClaude only ever shows two screens: the finder, or Claude Code in a full-window terminal. We build a cached index over every <code>~/.claude/projects/*/*.jsonl</code>, a transcript-to-markdown preview, a trimmed copy of BeastVim's finder wired to that one source, and a loop that launches <code>claude --resume</code> and returns to the finder when it exits.</p>
+    <p class="meta">PM spec: <code>docs/pm-specs/finder-init.md</code> - 5 phases, each mergeable alone.</p>
+  </header>
+
+  <section data-spec="flow">
+    <h2>How the pieces fit</h2>
+    <svg viewBox="0 0 880 250" role="img" aria-label="Architecture flow">
+      <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker></defs>
+      <g id="n-store"><title>Session store</title><rect class="box" x="10" y="20" width="170" height="60" rx="8"/><text x="25" y="46">~/.claude/projects</text><text class="sm" x="25" y="64">*.jsonl (read-only)</text></g>
+      <g id="n-index"><title>Index and cache</title><rect class="box acc" x="250" y="20" width="190" height="60" rx="8"/><text x="265" y="46">sessions/index.lua</text><text class="sm" x="265" y="64">scan + size/mtime cache</text></g>
+      <g id="n-transcript"><title>Transcript renderer</title><rect class="box acc" x="250" y="110" width="190" height="60" rx="8"/><text x="265" y="136">transcript.lua</text><text class="sm" x="265" y="154">jsonl -> markdown</text></g>
+      <g id="n-finder"><title>Finder UI</title><rect class="box acc" x="510" y="60" width="180" height="70" rx="8"/><text x="525" y="88">finder/ (BeastVim copy)</text><text class="sm" x="525" y="106">list + input + preview</text></g>
+      <g id="n-claude"><title>Claude runner</title><rect class="box acc" x="740" y="60" width="130" height="70" rx="8"/><text x="752" y="88">claude.lua</text><text class="sm" x="752" y="106">terminal, full window</text></g>
+      <path class="ar" d="M180 50H250"/><path class="ar" d="M440 50L510 80"/><path class="ar" d="M180 70L250 135"/><path class="ar" d="M440 140L510 112"/>
+      <path class="ar" d="M690 90H740"/><path class="ar" d="M805 130V215H600V132"/>
+      <text class="sm" x="620" y="232">process exits -> finder again (refreshed index)</text>
+      <text class="sm" x="700" y="55">Enter</text>
+      <text class="sm" x="30" y="150">Esc in finder -> :qa</text>
+    </svg>
+  </section>
+
+  <section data-spec="context">
+    <h2>Context</h2>
+    <p><b>Problem.</b> The repo has only skill scaffolding and <code>STRATEGY.md</code>. There is no config, no session reader and no finder; Claude Code offers no cross-project listing. <b>Solution.</b> <code>nvim</code> starts straight in a full-screen finder fed by a persistent index. Enter hands the window to <code>claude</code>; exit returns to the finder. BeastVim code is copied and trimmed, never required.</p>
+  </section>
+
+  <section data-spec="research">
+    <h2>Research</h2>
+    <div class="card" data-spec="research-repo"><b>Repo search.</b> Searched the working tree: only <code>.claude/</code>, <code>STRATEGY.md</code>, PM spec. No code, no CODEMAP (skipped, nothing to map; run <code>update-codemap</code> after Phase 1). Reuse: none.</div>
+    <div class="card" data-spec="research-builtin"><b>Built-ins and existing code.</b>
+      <ul>
+        <li><b>Use</b>: Neovim 0.12.6 <code>vim.uv</code>, <code>vim.json</code>, <code>jobstart{term=true}</code>, <code>stdpath("cache")</code>.</li>
+        <li><b>Reuse by copy-and-trim</b>: BeastVim finder (~5.6k lines) - matcher, score, topk, match_hl, layout, render, queue, session, keymaps, ui/{input,list,preview,backdrop,hint}. Not taken: sources, chains, gh/gl, diff, live-grep index.</li>
+        <li><b>Build</b>: scan, index, cache, transcript renderer (nothing suitable exists).</li>
+        <li><b>Format facts</b>: typed JSONL lines (<code>user</code>, <code>assistant</code>, <code>ai-title</code>, large <code>api-request*</code> records to ignore). The folder name is a lossy encoding, so the real folder comes from each record's <code>cwd</code>. Store here: 176 files, 187 MB, 25 projects.</li>
+        <li><b>Resume</b>: <code>claude --resume &lt;id&gt;</code> found a session from an unrelated directory (<code>/tmp</code>). That check used <code>-p</code>, which ran a real model turn and appended to this very session's transcript; re-verify the interactive case on a throwaway session in Phase 4.</li>
+      </ul></div>
+  </section>
+
+  <section data-spec="architecture-changes">
+    <h2>Files (all new)</h2>
+    <div class="table-wrap"><table>
+      <tr><th>Path</th><th>What</th></tr>
+      <tr><td><code>init.lua</code></td><td>Config entry; starts the app on VimEnter</td></tr>
+      <tr><td><code>lua/vc/init.lua</code></td><td>State machine finder &lt;-&gt; claude; one-window invariant</td></tr>
+      <tr><td><code>lua/vc/sessions/scan.lua</code></td><td>One .jsonl to a row (id, title, project, cwd, last_ts, msg_count)</td></tr>
+      <tr><td><code>lua/vc/sessions/index.lua</code></td><td>Walk store, reuse cache, rescan changed off the main loop, sort newest first</td></tr>
+      <tr><td><code>lua/vc/sessions/cache.lua</code></td><td>Versioned index file under <code>stdpath("cache")</code>, atomic write</td></tr>
+      <tr><td><code>lua/vc/transcript.lua</code></td><td>Whole conversation as markdown; tool runs collapsed</td></tr>
+      <tr><td><code>lua/vc/finder/*</code></td><td>Trimmed BeastVim copy + <code>source.lua</code> for the one source</td></tr>
+      <tr><td><code>lua/vc/claude.lua</code></td><td>Full-window terminal runner, exit callback</td></tr>
+      <tr><td><code>test/**</code>, <code>Makefile</code></td><td>Headless specs, same harness approach as BeastVim</td></tr>
+      <tr><td><code>scripts/bench-index.lua</code></td><td>Cold/warm open timing on 5k synthetic sessions</td></tr>
+    </table></div>
+  </section>
+
+  <section data-spec="phases">
+    <h2>Phases</h2>
+    <div class="card" data-spec="phase-1"><h3>Phase 1 - Session index <span class="tag Medium">risk: medium</span></h3><p class="goal">Reliable metadata for every session, fast on warm start. No UI.</p>
+      <ol class="steps">
+        <li data-spec="phase-1-step-1"><b>Row scanner</b> <code>sessions/scan.lua</code>: cwd from first user/assistant record, title from last <code>ai-title</code> (else first prompt, else "(untitled)"), last timestamp, message count (all non-sidechain user + assistant records, tool calls and results included = full conversation). Tolerates bad lines and empty files.</li>
+        <li data-spec="phase-1-step-2"><b>Cache</b> <code>sessions/cache.lua</code>: keyed by path, valid while size+mtime match; corrupt/old file rebuilt.</li>
+        <li data-spec="phase-1-step-3"><b>Index walk</b> <code>sessions/index.lua</code>: top-level jsonl only, cached rows first, changed files rescanned off the main loop, vanished files dropped, <code>cwd_exists</code> computed. Never writes under <code>~/.claude</code>.</li>
+        <li data-spec="phase-1-step-4"><b>Tests</b> <code>Makefile</code>, <code>test/sessions/*</code>: titled, untitled, empty, corrupt line, deleted folder, subagent subdir.</li></ol></div>
+    <div class="card" data-spec="phase-2"><h3>Phase 2 - Transcript renderer <span class="tag Medium">risk: medium</span></h3><p class="goal">Whole conversation as readable markdown. Depends on Phase 1 step 1.</p>
+      <ol class="steps">
+        <li data-spec="phase-2-step-1"><b>Renderer</b> <code>transcript.lua</code>: You / Claude sections. Tool calls, tool results and thinking are kept in full, and each consecutive run is recorded in a fold map. Only non-conversation records are skipped. Never truncates, yields in chunks. The preview turns the map into auto folds (<code>foldmethod=expr</code>, <code>foldlevel=0</code>, fold text "▸ 4 tool calls" / "▸ thinking"); <code>za</code>/<code>zo</code>/<code>zR</code> work, the user never creates folds.</li>
+        <li data-spec="phase-2-step-2"><b>Tests</b> <code>test/transcript_spec.lua</code>: string vs array content, tool runs, thinking, fold map matches runs, tool text present, 2k-turn session keeps its last line.</li></ol></div>
+    <div class="card" data-spec="phase-3"><h3>Phase 3 - Finder UI <span class="tag High">risk: high</span></h3><p class="goal">Trimmed BeastVim finder over the one source. Depends on Phases 1-2.</p>
+      <ol class="steps">
+        <li data-spec="phase-3-step-1"><b>Copy and trim</b> <code>finder/*</code>: rename requires, drop View/chain/gh/gl/diff/live-grep/level. Gate: no <code>require("beast</code> left. Small commits, tests green at each.</li>
+        <li data-spec="phase-3-step-2"><b>Sessions source</b> <code>finder/source.lua</code>: "+ New session" only on empty query; match on title + project only; row format per PM spec incl. "(folder gone)"; preview from <code>transcript.lua</code> with its auto folds applied, all closed on open.</li>
+        <li data-spec="phase-3-step-3"><b>Full-screen layout and keys</b>: no backdrop or margin; <code>&lt;C-n&gt;/&lt;C-p&gt;</code>, <code>&lt;CR&gt;</code>, <code>&lt;Esc&gt;</code> = <code>:qa</code>; Enter on no rows is a no-op; selection resets on query change.</li>
+        <li data-spec="phase-3-step-4"><b>Tests</b> <code>test/finder/*</code>.</li></ol></div>
+    <div class="card" data-spec="phase-4"><h3>Phase 4 - Two-screen loop <span class="tag Medium">risk: medium</span></h3><p class="goal">Enter opens Claude Code, exit returns to the finder. Depends on Phase 3.</p>
+      <ol class="steps">
+        <li data-spec="phase-4-step-1"><b>Claude runner</b> <code>claude.lua</code>: Claude Code runs in a Neovim terminal buffer (a PTY owned by this Neovim).
+          <ol type="a">
+            <li>Close the finder so one window remains; put a scratch buffer in it (<code>bufhidden=wipe</code>, no columns, <code>laststatus=0</code>, <code>showtabline=0</code>).</li>
+            <li><code>jobstart(cmd, {term=true, on_exit=cb})</code>, then <code>startinsert</code> so keys go straight to Claude Code.</li>
+            <li>Resume = <code>cd &lt;cwd&gt; &amp;&amp; exec claude --resume &lt;id&gt;</code> run via <code>{shell, "-c", 'cd "$1" &amp;&amp; exec claude --resume "$2"', "vc", cwd, id}</code>. cwd and id are positional args, never interpolated, so odd paths are safe; <code>exec</code> makes Claude's exit end the job.</li>
+            <li>New session = same shape with <code>claude</code> only, <code>cd</code> to <code>getcwd()</code>.</li>
+            <li>Folder gone: skip the <code>cd</code>, print the notice line first, then <code>exec claude --resume &lt;id&gt;</code> from <code>getcwd()</code>.</li>
+            <li><code>on_exit</code> is scheduled to the main loop and calls <code>back_to_finder()</code>. Non-zero exit or missing <code>claude</code> shows one message above the finder.</li>
+            <li>Neovim's own cwd never changes (the <code>cd</code> is inside the child shell).</li>
+          </ol></li>
+        <li data-spec="phase-4-step-2"><b>State machine</b> <code>vc/init.lua</code>, <code>init.lua</code>: finder on VimEnter; after exit wipe the terminal buffer, <code>:only</code>, reopen finder with empty query and refreshed index; no way to open the finder by hand; no dashboard or intro.</li>
+        <li data-spec="phase-4-step-3"><b>Integration tests</b> <code>test/loop_spec.lua</code> with a fake <code>claude</code>: window count is 1 at every point.</li></ol></div>
+    <div class="card" data-spec="phase-5"><h3>Phase 5 - Performance and polish <span class="tag Low">risk: low</span></h3><p class="goal">"Opening stays fast." Depends on Phases 1 and 3.</p>
+      <ol class="steps">
+        <li data-spec="phase-5-step-1"><b>Bench</b> <code>scripts/bench-index.lua</code>: 5,000 synthetic sessions; report cold, warm first paint, incremental refresh.</li>
+        <li data-spec="phase-5-step-2"><b>Tune</b> only if warm first paint misses ~100 ms: head/tail windows for metadata, batched cache writes.</li>
+        <li data-spec="phase-5-step-3"><b>Pixel pass</b> against <code>docs/pm-specs/finder-init.html</code>: alignment, truncation, selection bar, empty state.</li></ol></div>
+  </section>
+
+  <section data-spec="open-questions">
+    <h2>Decisions (settled in review)</h2>
+    <div class="card decide" data-spec="decision-ctrl-c"><b>Ctrl-C.</b> Keep Claude Code's own quit behavior (first Ctrl-C interrupts, second or <code>/exit</code> quits). The finder returns whenever the process exits, however it exits. Agreed.</div>
+    <div class="card decide" data-spec="decision-msg-count"><b>Message count.</b> The row shows the size of the full conversation (all user + assistant records, tool calls and results included), and the preview shows that same full conversation. My reading of your note: please correct me if you meant counting raw file lines.</div>
+  </section>
+
+  <section data-spec="testing-strategy">
+    <h2>Testing strategy</h2>
+    <ul><li><b>Headless:</b> <code>make test</code>, one spec per module, plus a grep-gate test for <code>require("beast</code>.</li>
+      <li><b>Bench:</b> <code>nvim --headless -l scripts/bench-index.lua</code> after touching <code>sessions/*</code>.</li>
+      <li><b>Manual:</b> PM spec scenarios 1-8 against the real store, then confirm nothing under <code>~/.claude</code> changed.</li></ul>
+  </section>
+
+  <section data-spec="success-criteria">
+    <h2>Success criteria</h2>
+    <ul class="checks">
+      <li>All-project list, newest first; "New session" first only on empty query</li>
+      <li>Typing narrows by title/project; preview follows highlight and scrolls to the last message</li>
+      <li>Tool calls, results and thinking are in the preview, auto-folded and closed on open, openable with fold keys</li>
+      <li>Enter continues a session or starts a new one, Claude Code as the only window</li>
+      <li>Deleted-folder session continues from the current directory with a notice</li>
+      <li>Esc exits; quitting Claude Code returns to a refreshed finder; no editor buffer ever visible</li>
+      <li>Appears instantly with thousands of sessions (bench gate)</li>
+      <li>No write under <code>~/.claude</code>; no <code>require("beast</code> in <code>lua/</code>; <code>make test</code> green</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
