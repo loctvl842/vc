@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec: Claude Session Finder</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a;
+          --term:#1e1e2e; --term-fg:#cdd6f4; --term-dim:#7f849c; --term-sel:#313244; --term-acc:#89b4fa; --term-grn:#a6e3a1; --term-warn:#f9e2af; --term-bd:#45475a; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:960px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:36px 0; }
+  h1 { margin:0 0 8px; } h2 { margin:0 0 10px; font-size:1.25rem; }
+  .muted { color:var(--muted); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  pre.mock { background:var(--term); color:var(--term-fg); border-radius:8px; padding:12px 14px; overflow-x:auto; font:12.5px/1.35 ui-monospace, Menlo, monospace; margin:8px 0 0; }
+  .state { margin:14px 0; } .state > .label { font-weight:600; font-size:.9rem; }
+  ul.checks { list-style:none; padding-left:0; } ul.checks li { padding:3px 0; }
+  ul.checks li::before { content:"\2610  "; color:var(--accent); }
+  details.scn { margin:8px 0; } details.scn summary { cursor:pointer; font-weight:600; padding:8px 0; }
+  .steps { display:grid; gap:8px; } .step { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .step > div { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:8px 12px; font-size:.92rem; }
+  .step .do { border-left:3px solid var(--accent); } .step b { display:block; font-size:.75rem; text-transform:uppercase; color:var(--muted); letter-spacing:.04em; }
+  @media (max-width:640px){ .step { grid-template-columns:1fr; } }
+
+  /* ---- interactive Neovim simulator ---- */
+  .sim-wrap { border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--term); }
+  .sim-bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:8px 10px; background:#181825; color:var(--term-dim); font:12px ui-monospace, Menlo, monospace; }
+  .sim-bar button { font:inherit; background:var(--term-sel); color:var(--term-fg); border:1px solid var(--term-bd); border-radius:5px; padding:3px 9px; cursor:pointer; }
+  .sim-bar .sp { flex:1; }
+  .screen { position:relative; height:560px; font:13px/1.45 ui-monospace, Menlo, monospace; color:var(--term-fg); }
+  .exited { position:absolute; inset:0; padding:16px; color:var(--term-fg); white-space:pre; background:#11111b; }
+  .exited button { margin-top:12px; font:inherit; background:var(--term-sel); color:var(--term-fg); border:1px solid var(--term-bd); border-radius:5px; padding:3px 9px; cursor:pointer; }
+  .editor { position:absolute; inset:0; padding:12px 16px; color:var(--term-dim); white-space:pre; overflow:hidden; }
+  .editor .ln { color:#585b70; } .editor .st { position:absolute; left:0; right:0; bottom:0; background:#181825; padding:2px 16px; color:var(--term-fg); }
+  .finder { position:absolute; inset:0; background:var(--term); display:flex; flex-direction:column; min-height:0; }
+  .f-title { color:var(--term-acc); padding:2px 10px; font-weight:600; border-bottom:1px solid var(--term-bd); display:flex; }
+  .f-title .cnt { margin-left:auto; color:var(--term-dim); font-weight:400; }
+  .f-q { display:flex; align-items:center; padding:3px 10px; border-bottom:1px solid var(--term-bd); }
+  .f-q span { color:var(--term-grn); margin-right:6px; }
+  .f-q input { flex:1; background:transparent; border:0; outline:0; color:var(--term-fg); font:inherit; caret-color:var(--term-fg); min-width:0; }
+  .f-body { flex:1; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); min-height:0; }
+  .f-list { overflow-y:auto; border-right:1px solid var(--term-bd); min-height:0; }
+  .row { padding:2px 10px 2px 8px; cursor:pointer; border-left:3px solid transparent; }
+  .row .t { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .row .m { color:var(--term-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px; }
+  .row.sel { background:var(--term-sel); border-left-color:var(--term-acc); }
+  .row.new .t { color:var(--term-grn); }
+  .row mark { background:transparent; color:var(--term-warn); font-weight:700; }
+  .row .gone { color:#f38ba8; }
+  .empty { padding:10px; color:var(--term-dim); }
+  .f-prev { overflow-y:auto; padding:6px 12px; min-height:0; }
+  .p-head { color:var(--term-dim); border-bottom:1px solid var(--term-bd); padding-bottom:4px; margin-bottom:6px; font-size:12px; }
+  .p-who { color:var(--term-acc); font-weight:700; margin-top:8px; } .p-who.cl { color:var(--term-grn); }
+  .p-txt { white-space:pre-wrap; } .p-tool { color:var(--term-dim); font-style:italic; margin:2px 0; }
+  .p-end { color:var(--term-dim); margin-top:10px; border-top:1px dashed var(--term-bd); padding-top:4px; font-size:12px; }
+  .f-foot { border-top:1px solid var(--term-bd); padding:2px 10px; color:var(--term-dim); font-size:12px; }
+  .f-foot b { color:var(--term-warn); font-weight:600; }
+  .claude { position:absolute; inset:0; background:#11111b; padding:14px 18px; display:flex; flex-direction:column; gap:8px; }
+  .claude .box { border:1px solid #cba6f7; border-radius:6px; padding:8px 12px; color:#cba6f7; }
+  .claude .notice { color:var(--term-warn); } .claude .dim { color:var(--term-dim); }
+  [hidden] { display:none !important; }
+  @media (max-width:640px){ .f-body { grid-template-columns:1fr; grid-template-rows:1fr 1fr; } .f-list { border-right:0; border-bottom:1px solid var(--term-bd); } }
+</style>
+</head>
+<body>
+<main>
+  <header data-spec="summary">
+    <h1>Claude Session Finder</h1>
+    <p>One finder lists every Claude Code session from every project in a single list, newest first. Typing narrows it, the preview shows the whole conversation, and Enter continues that session in Claude Code. There are only two screens: the finder and Claude Code. Quitting Claude Code brings the finder back. The mockup below is live: try it.</p>
+  </header>
+
+  <section data-spec="interactive-mockup">
+    <h2>Try it</h2>
+    <p class="muted">Click inside the finder and type. Keys: <kbd>Ctrl-n</kbd>/<kbd>Ctrl-p</kbd> or arrows to move, <kbd>Enter</kbd> to open, <kbd>Esc</kbd> to exit. Inside Claude Code, <kbd>Ctrl-C</kbd> quits and returns to the finder. Sample data only. Turn off "Pick elements" in the review panel (Alt+A) to use the mockup.</p>
+    <div class="sim-wrap">
+      <div class="sim-bar"><span>vimclaude - ~/work/api-server</span></div>
+      <div class="screen" id="screen">
+        <div class="exited" id="exited" hidden>$ <span style="color:var(--term-dim)">(VimClaude exited to the shell)</span>
+<button id="relaunch" type="button">Launch VimClaude</button></div>
+        <div class="finder" id="finder">
+          <div class="f-title"><span>Claude Sessions</span><span class="cnt" id="cnt"></span></div>
+          <div class="f-q"><span>&gt;</span><input id="q" autocomplete="off" spellcheck="false" aria-label="Query"></div>
+          <div class="f-body"><div class="f-list" id="list"></div><div class="f-prev" id="prev"></div></div>
+          <div class="f-foot" id="foot"></div>
+        </div>
+        <div class="claude" id="claude" hidden></div>
+      </div>
+    </div>
+  </section>
+
+  <section data-spec="problem">
+    <h2>Problem</h2>
+    <p>Someone who uses Claude Code all day across many projects ends up with hundreds of past sessions, reachable only through the project they started in and named by an opaque id. Getting back to "that conversation about the login bug" means remembering the project, changing folder, and opening several cryptic entries.</p>
+    <p class="muted"><b>Why now:</b> every lookup breaks flow, and a cross-project finder is the one thing this configuration exists to provide.</p>
+  </section>
+
+  <section data-spec="target-behavior">
+    <h2>Target behavior</h2>
+    <p>Full-screen finder: query on top, list left, whole-conversation preview right, key hints below. Each row shows title, project, last activity, message count.</p>
+    <div class="state" data-spec="state-1"><div class="label">State 1 - opened, empty query</div>
+<pre class="mock">┌ Claude Sessions ─────────────────────────────────────────────────────────────┐
+│ > _                                                                 12 / 12  │
+├──────────────────────────────────────────┬───────────────────────────────────┤
+│ ▌+ New session                           │ New session                       │
+│  Fix flaky login test                    │                                   │
+│    api-server            2m ago   34 msg │ Starts a fresh Claude Code        │
+│  Draft Q4 roadmap outline                │ session in                        │
+│    notes                 1h ago   12 msg │ ~/work/api-server                 │
+│  Why is the build slow on CI             │                                   │
+│    web-app               3h ago   58 msg │                                   │
+│  ...                                     │                                   │
+├──────────────────────────────────────────┴───────────────────────────────────┤
+│ &lt;CR&gt; continue   &lt;C-n&gt;/&lt;C-p&gt; move   &lt;Esc&gt; exit                               │
+└──────────────────────────────────────────────────────────────────────────────┘</pre></div>
+    <div class="state" data-spec="state-2"><div class="label">State 2 - query typed ("login"): no "New session" row</div>
+<pre class="mock">┌ Claude Sessions ─────────────────────────────────────────────────────────────┐
+│ > login_                                                             2 / 12  │
+├──────────────────────────────────────────┬───────────────────────────────────┤
+│ ▌Fix flaky login test                    │ You                               │
+│    api-server            2m ago   34 msg │ The login test fails one run in   │
+│  Add SSO login to admin panel            │ five on CI, can you find why?     │
+│    web-app               5d ago   41 msg │ Claude                            │
+│                                          │ ▸ 4 tool calls                    │
+│                                          │ (scrolls - whole conversation)    │
+└──────────────────────────────────────────┴───────────────────────────────────┘</pre></div>
+    <div class="state" data-spec="state-3"><div class="label">State 3 - nothing matches</div>
+<pre class="mock">│ > zzz_                                                               0 / 12  │
+│  No sessions match "zzz"                 │                                   │</pre></div>
+    <div class="state" data-spec="state-4"><div class="label">State 4 - Enter on a session: Claude Code is the only window</div>
+<pre class="mock">│ Claude Code - continuing "Fix flaky login test"                              │
+│ ~/work/api-server                                                            │
+│ Ctrl-C quits Claude Code and the finder is back, ready to browse again       │</pre></div>
+    <div class="state" data-spec="state-5"><div class="label">State 5 - project folder no longer exists</div>
+<pre class="mock">Row:    Old prototype   (folder gone)   3mo ago   17 msg
+Enter:  continues from the current directory, notice:
+        "Original folder ~/work/proto is gone, continuing from ~/work/api-server"</pre></div>
+  </section>
+
+  <section data-spec="scenarios">
+    <h2>Scenarios</h2>
+    <details class="scn" open data-spec="scenario-1"><summary>1 - Find and continue a past session (happy path)</summary><div class="steps">
+      <div class="step"><div class="do"><b>User</b>Launches VimClaude</div><div><b>Sees</b>Finder already open: "New session" first, then every session from every project, newest on top</div></div>
+      <div class="step"><div class="do"><b>User</b>Types "login"</div><div><b>Sees</b>List narrows; "New session" disappears; first match's whole conversation in the preview</div></div>
+      <div class="step"><div class="do"><b>User</b>Ctrl-n to the second match</div><div><b>Sees</b>Preview switches</div></div>
+      <div class="step"><div class="do"><b>User</b>Enter</div><div><b>Sees</b>Claude Code opens as the only window, continuing that session</div></div></div></details>
+    <details class="scn" data-spec="scenario-2"><summary>2 - Start a new session</summary><div class="steps">
+      <div class="step"><div class="do"><b>User</b>Launches VimClaude</div><div><b>Sees</b>Finder already open, "New session" highlighted; preview says where it starts</div></div>
+      <div class="step"><div class="do"><b>User</b>Enter</div><div><b>Sees</b>Empty Claude Code, only window, in Neovim's current directory. No project picker</div></div></div></details>
+    <details class="scn" data-spec="scenario-3"><summary>3 - Recognize a session from its preview</summary><div class="steps">
+      <div class="step"><div class="do"><b>User</b>Highlights a long session (91 messages)</div><div><b>Sees</b>Conversation from its first message</div></div>
+      <div class="step"><div class="do"><b>User</b>Scrolls to the end</div><div><b>Sees</b>Every turn, nothing cut; tool runs shown as one dim line each</div></div>
+      <div class="step"><div class="do"><b>User</b>Moves to another row</div><div><b>Sees</b>Preview switches; nothing changed on disk</div></div></div></details>
+    <details class="scn" data-spec="scenario-4"><summary>4 - No match</summary><div class="steps">
+      <div class="step"><div class="do"><b>User</b>Types "zzz"</div><div><b>Sees</b>"No sessions match", empty preview, Enter does nothing</div></div>
+      <div class="step"><div class="do"><b>User</b>Deletes characters</div><div><b>Sees</b>Matches return; with an empty query "New session" returns first</div></div></div></details>
+    <details class="scn" data-spec="scenario-5"><summary>5 - Session whose folder was deleted</summary><div class="steps">
+      <div class="step"><div class="do"><b>User</b>Highlights a "(folder gone)" row</div><div><b>Sees</b>Still listed in normal order</div></div>
+      <div class="step"><div class="do"><b>User</b>Enter</div><div><b>Sees</b>Opens from the current directory with a one-line notice</div></div></div></details>
+    <details class="scn" data-spec="scenario-6"><summary>6 - Exit</summary><div class="steps">
+      <div class="step"><div class="do"><b>User</b>Presses Esc in the finder</div><div><b>Sees</b>VimClaude exits to the shell, nothing changed. The only way out; there is no editor view to fall back to</div></div></div></details>
+    <details class="scn" data-spec="scenario-8"><summary>8 - Quit Claude Code and keep browsing</summary><div class="steps">
+      <div class="step"><div class="do"><b>User</b>In a session opened from the finder, presses Ctrl-C</div><div><b>Sees</b>Claude Code closes; the finder is shown again by itself, empty query, "New session" first, list refreshed (session just used on top)</div></div>
+      <div class="step"><div class="do"><b>User</b>Picks another session, or Esc</div><div><b>Sees</b>Another pick continues it; Esc exits VimClaude</div></div></div></details>
+    <details class="scn" data-spec="scenario-7"><summary>7 - Many sessions</summary><div class="steps">
+      <div class="step"><div class="do"><b>User</b>Launches VimClaude with thousands of sessions</div><div><b>Sees</b>List appears right away, no waiting for a scan</div></div>
+      <div class="step"><div class="do"><b>User</b>Starts a session elsewhere, returns to the finder</div><div><b>Sees</b>The new session is on top</div></div></div></details>
+  </section>
+
+  <section data-spec="behavior-rules">
+    <h2>Behavior rules</h2>
+    <ul>
+      <li>One flat list ordered by last activity, newest first. No project headers, no grouping, nothing hidden (empty or tiny sessions included).</li>
+      <li>Covers every project on the machine, never only the current one.</li>
+      <li>The query matches what a row shows (title, project); it never searches conversation text.</li>
+      <li>"New session" is first only while the query is empty; any query removes it, clearing brings it back.</li>
+      <li>First row is highlighted on open and after every query change.</li>
+      <li>Enter on no rows does nothing.</li>
+      <li>Missing project folder: still listed, continued from the current directory with a notice.</li>
+      <li>Preview always shows the whole conversation; tool calls collapse to a dim line.</li>
+      <li>Read-only: no delete, rename, or edit of any session.</li>
+      <li>Claude Code opens as the only window.</li>
+      <li>Only two screens exist: the finder or Claude Code. No editor view, no command to open the finder by hand.</li>
+      <li>Not in Claude Code means the finder is showing. Quitting Claude Code (Ctrl-C) shows it again, empty query, refreshed list.</li>
+      <li>Esc in the finder exits VimClaude.</li>
+      <li>Opening is fast at any session count; sessions started elsewhere show up on next open.</li>
+    </ul>
+  </section>
+
+  <section data-spec="success-criteria">
+    <h2>Success criteria</h2>
+    <ul class="checks">
+      <li>Sessions from all projects in one list, newest first</li>
+      <li>"New session" first with an empty query, absent once anything is typed</li>
+      <li>Typing narrows by title or project; preview follows the highlighted row</li>
+      <li>Preview of a very long session scrolls to its final message</li>
+      <li>Tool calls do not bury the dialogue</li>
+      <li>Enter on a session opens Claude Code, only window, in that session</li>
+      <li>Enter on "New session" opens a fresh session in the current directory</li>
+      <li>Deleted-folder session continues from the current directory with a notice</li>
+      <li>Esc exits VimClaude and changes nothing</li>
+      <li>Launching shows the finder immediately; no manual open step exists</li>
+      <li>No editor buffer is ever visible</li>
+      <li>Ctrl-C in Claude Code brings the finder back, refreshed, so browsing continues</li>
+      <li>The finder appears instantly with thousands of sessions</li>
+      <li>No action alters any session</li>
+    </ul>
+  </section>
+
+  <section data-spec="out-of-scope">
+    <h2>Out of scope</h2>
+    <ul>
+      <li>Searching inside conversation text - the query matches what a row shows, by design</li>
+      <li>Grouping or filtering by project, hiding "boring" sessions - one flat list is the point</li>
+      <li>Delete, rename, edit, or tag sessions - the finder never writes</li>
+      <li>Any other source (files, grep, other agents' sessions)</li>
+      <li>A project picker for "New session" - it starts where Neovim is</li>
+      <li>An editor view or any third screen; Claude Code beside the editor or as a chat panel</li>
+    </ul>
+  </section>
+</main>
+
+<script>
+(function () {
+  var CWD = "~/work/api-server";
+  var S = [
+    { id:1, title:"Fix flaky login test", proj:"api-server", dir:"~/work/api-server", ago:"2m ago", n:34,
+      turns:[["u","The login test fails one run in five on CI, can you find why?"],["a","Let me look at the test first."],["t",4],["a","It waits a fixed 200ms for the session cookie. On a slow runner that is not enough. I will wait on the response instead."],["t",2],["u","Great, also run it 50 times to be sure."],["t",1],["a","50 of 50 passed."]] },
+    { id:2, title:"Draft Q4 roadmap outline", proj:"notes", dir:"~/work/notes", ago:"1h ago", n:12,
+      turns:[["u","Turn these bullet points into a Q4 roadmap outline."],["a","Here is a three-theme outline: reliability, onboarding, and reporting."],["u","Shorter please."],["a","Done: one line per theme."]] },
+    { id:3, title:"Why is the build slow on CI", proj:"web-app", dir:"~/work/web-app", ago:"3h ago", n:58,
+      turns:[["u","CI builds went from 4 to 11 minutes. Why?"],["t",6],["a","The dependency cache key includes the lockfile hash and a timestamp, so it never hits."],["u","Fix it."],["t",3],["a","Removed the timestamp from the key."]] },
+    { id:4, title:"Migrate users table to uuid", proj:"api-server", dir:"~/work/api-server", ago:"yesterday", n:91, long:true,
+      turns:[["u","Plan a migration of the users table from integer ids to uuids with no downtime."]] },
+    { id:5, title:"Add SSO login to admin panel", proj:"web-app", dir:"~/work/web-app", ago:"5d ago", n:41,
+      turns:[["u","Add SSO login to the admin panel using our identity provider."],["t",5],["a","I added an OIDC callback route and a session bridge."],["u","Keep the old password login behind a flag."],["a","Done, flag is ADMIN_PASSWORD_LOGIN."]] },
+    { id:6, title:"Neovim: fix statusline flicker", proj:"dotfiles", dir:"~/.config/dotfiles", ago:"6d ago", n:27,
+      turns:[["u","My statusline flickers when I switch buffers."],["t",3],["a","A redraw is forced on every BufEnter; I debounced it."]] },
+    { id:7, title:"Explain the retry policy in the queue worker", proj:"queue-worker", dir:"~/work/queue-worker", ago:"1w ago", n:9,
+      turns:[["u","Explain the retry policy."],["t",2],["a","Exponential backoff, 5 attempts, then dead-letter."]] },
+    { id:8, title:"Write release notes for v2.3", proj:"web-app", dir:"~/work/web-app", ago:"2w ago", n:15,
+      turns:[["u","Write release notes for v2.3 from the merged PRs."],["t",2],["a","Drafted: 4 features, 7 fixes."]] },
+    { id:9, title:"Debug memory leak in image resizer", proj:"media-svc", dir:"~/work/media-svc", ago:"3w ago", n:73,
+      turns:[["u","The resizer's memory grows until it is killed."],["t",8],["a","Buffers are retained by an unclosed stream on the error path."]] },
+    { id:10, title:"Old prototype", proj:"proto", dir:"~/work/proto", gone:true, ago:"3mo ago", n:17,
+      turns:[["u","Sketch a prototype for the sync engine."],["a","Here is a minimal CRDT-based sketch."]] },
+    { id:11, title:"Rename config keys", proj:"dotfiles", dir:"~/.config/dotfiles", ago:"3mo ago", n:3,
+      turns:[["u","Rename the theme keys to snake_case."],["a","Done."]] },
+    { id:12, title:"Tax spreadsheet formulas", proj:"notes", dir:"~/work/notes", ago:"4mo ago", n:21,
+      turns:[["u","Help me with the VLOOKUP in my tax sheet."],["a","Use XLOOKUP with an exact match."]] }
+  ];
+  // long session: generate a full conversation so the preview visibly scrolls
+  (function () {
+    var s = S[3], t = s.turns, steps = ["add a nullable uuid column","backfill in batches of 5k","dual-write from the app","switch reads to uuid","add unique index concurrently","swap the primary key","drop the old integer column"];
+    for (var i = 0; i < 40; i++) {
+      t.push(["a", "Step " + (i % 7 + 1) + ": " + steps[i % 7] + ". This keeps writes available while the table is rewritten."]);
+      t.push(["t", 1 + (i % 4)]);
+      t.push(["u", i % 2 ? "What if the backfill is interrupted?" : "How do we verify this step?"]);
+    }
+    t.push(["a", "Final answer: run the seven steps in order; each is reversible until the last one."]);
+  })();
+
+  var $ = function (id) { return document.getElementById(id); };
+  var q = $("q"), list = $("list"), prev = $("prev"), foot = $("foot"), cnt = $("cnt");
+  var rows = [], sel = 0;
+
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+  function hl(text, query) {
+    if (!query) return esc(text);
+    var i = text.toLowerCase().indexOf(query.toLowerCase());
+    if (i < 0) return esc(text);
+    return esc(text.slice(0, i)) + "<mark>" + esc(text.slice(i, i + query.length)) + "</mark>" + esc(text.slice(i + query.length));
+  }
+  function compute() {
+    var query = q.value.trim().toLowerCase(), out = [];
+    if (!query) out.push({ isNew:true });
+    S.forEach(function (s) {
+      if (!query || s.title.toLowerCase().indexOf(query) >= 0 || s.proj.toLowerCase().indexOf(query) >= 0) out.push(s);
+    });
+    rows = out;
+  }
+  function render(keepSel) {
+    var query = q.value.trim();
+    compute();
+    if (!keepSel) sel = 0;
+    sel = Math.max(0, Math.min(sel, rows.length - 1));
+    var h = "";
+    if (!rows.length) h = '<div class="empty">No sessions match "' + esc(query) + '"</div>';
+    rows.forEach(function (r, i) {
+      if (r.isNew) h += '<div class="row new' + (i === sel ? " sel" : "") + '" data-i="' + i + '"><div class="t">+ New session</div></div>';
+      else h += '<div class="row' + (i === sel ? " sel" : "") + '" data-i="' + i + '"><div class="t">' + hl(r.title, query) + '</div><div class="m">' + hl(r.proj, query) + (r.gone ? ' <span class="gone">(folder gone)</span>' : "") + "  -  " + esc(r.ago) + "  -  " + r.n + " msg</div></div>";
+    });
+    list.innerHTML = h;
+    var n = rows.filter(function (r) { return !r.isNew; }).length;
+    cnt.textContent = n + " / " + S.length;
+    foot.innerHTML = rows.length ? "<b>&lt;CR&gt;</b> " + (rows[sel] && rows[sel].isNew ? "start new" : "continue") + "   <b>&lt;C-n&gt;/&lt;C-p&gt;</b> move   <b>&lt;Esc&gt;</b> exit" : "<b>&lt;Esc&gt;</b> exit";
+    var el = list.querySelector(".sel"); if (el) el.scrollIntoView({ block:"nearest" });
+    preview();
+  }
+  function preview() {
+    var r = rows[sel];
+    prev.scrollTop = 0;
+    if (!r) { prev.innerHTML = ""; return; }
+    if (r.isNew) { prev.innerHTML = '<div class="p-who cl">New session</div><div class="p-txt">Starts a fresh Claude Code session in\n' + CWD + '</div>'; return; }
+    var h = '<div class="p-head">' + esc(r.title) + "  -  " + esc(r.dir) + (r.gone ? "  (folder gone)" : "") + "  -  " + r.n + " messages</div>";
+    r.turns.forEach(function (t) {
+      if (t[0] === "t") h += '<div class="p-tool">▸ ' + t[1] + " tool call" + (t[1] > 1 ? "s" : "") + "</div>";
+      else h += '<div class="p-who ' + (t[0] === "a" ? "cl" : "") + '">' + (t[0] === "u" ? "You" : "Claude") + '</div><div class="p-txt">' + esc(t[1]) + "</div>";
+    });
+    h += '<div class="p-end">- end of conversation -</div>';
+    prev.innerHTML = h;
+  }
+  function move(d) { if (!rows.length) return; sel = (sel + d + rows.length) % rows.length; render(true); }
+  function openFinder() { $("exited").hidden = true; $("claude").hidden = true; $("finder").hidden = false; q.value = ""; render(); q.focus({ preventScroll:true }); }
+  function closeFinder() { $("finder").hidden = true; }
+  function exitApp() { closeFinder(); $("exited").hidden = false; }
+  function enter() {
+    var r = rows[sel]; if (!r) return;
+    var c = $("claude"), h;
+    if (r.isNew) h = '<div class="box">Claude Code - new session</div><div class="dim">' + CWD + '</div><div class="dim">&gt; _</div>';
+    else {
+      h = '<div class="box">Claude Code - continuing "' + esc(r.title) + '"</div><div class="dim">' + esc(r.gone ? CWD : r.dir) + "</div>";
+      if (r.gone) h += '<div class="notice">Original folder ' + esc(r.dir) + " is gone, continuing from " + CWD + "</div>";
+      h += '<div class="dim">(' + r.n + " messages restored)</div>";
+    }
+    h += '<div class="dim" style="margin-top:auto">Claude Code is the only window. Press Ctrl-C (click here first) to quit; the finder comes back.</div>';
+    c.innerHTML = h; c.hidden = false; closeFinder(); c.focus({ preventScroll:true });
+  }
+  $("claude").setAttribute("tabindex", "0");
+  $("claude").addEventListener("keydown", function (e) { if (e.ctrlKey && e.key === "c") { e.preventDefault(); openFinder(); } });
+  $("claude").addEventListener("click", function () { this.focus({ preventScroll:true }); });
+  q.addEventListener("input", function () { render(); });
+  q.addEventListener("keydown", function (e) {
+    var k = e.key;
+    if (k === "ArrowDown" || (e.ctrlKey && (k === "n" || k === "j"))) { e.preventDefault(); move(1); }
+    else if (k === "ArrowUp" || (e.ctrlKey && (k === "p" || k === "k"))) { e.preventDefault(); move(-1); }
+    else if (k === "Enter") { e.preventDefault(); enter(); }
+    else if (k === "Escape") { e.preventDefault(); exitApp(); }
+  });
+  list.addEventListener("click", function (e) {
+    var r = e.target.closest(".row"); if (!r) return;
+    sel = +r.getAttribute("data-i"); render(true); q.focus({ preventScroll:true });
+  });
+  list.addEventListener("dblclick", enter);
+  $("relaunch").addEventListener("click", openFinder);
+  render();
+})();
+</script>
+</body>
+</html>
