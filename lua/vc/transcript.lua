@@ -103,6 +103,23 @@ function Out:message(marker, lines, marks, opts)
 	return first
 end
 
+--- A slash command is stored as tags: show what the user typed ("/clear args"), and the command's own
+--- output as a result. Anything else is not a command.
+---@param text string
+---@return VC.Block?
+local function command_block(text)
+	local name = text:match("<command%-name>(.-)</command%-name>")
+	if name then
+		local args = text:match("<command%-args>(.-)</command%-args>") or ""
+		return { kind = "prompt", text = vim.trim(vim.trim(name) .. " " .. vim.trim(args)) }
+	end
+	local out = text:match("^%s*<local%-command%-stdout>(.-)</local%-command%-stdout>%s*$")
+	local err = not out and text:match("^%s*<local%-command%-stderr>(.-)</local%-command%-stderr>%s*$")
+	if out or err then
+		return { kind = "result", result = { text = out or err, is_error = err and true or false } }
+	end
+end
+
 ---@class VC.Block
 ---@field kind "prompt"|"reply"|"thinking"|"call"|"result"
 ---@field text? string
@@ -161,7 +178,7 @@ function Builder:feed(line)
 	end
 	for _, b in ipairs(content) do
 		if b.type == "text" and type(b.text) == "string" and b.text ~= "" then
-			self:push({ kind = kind, text = b.text })
+			self:push(kind == "prompt" and command_block(b.text) or { kind = kind, text = b.text })
 		elseif b.type == "image" then
 			self:push({ kind = kind, text = "[image]" })
 		elseif b.type == "thinking" and type(b.thinking) == "string" and b.thinking:find("%S") then

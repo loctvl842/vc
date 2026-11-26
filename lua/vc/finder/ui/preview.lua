@@ -57,10 +57,11 @@ function M.create(geo)
 	)
 	View.wo(win, "wrap", true)
 	View.wo(win, "linebreak", true)
-	-- A wrapped line hangs under its text: past the marker (dot, bullet, number, quote bar, result bar).
+	-- A wrapped line hangs under its text: past the marker (dot, bullet, number, quote bar, result bar) or,
+	-- in a diff, past the line number and its +/- sign.
 	View.wo(win, "breakindent", true)
 	View.wo(win, "breakindentopt", "list:-1")
-	vim.bo[buf].formatlistpat = [[^\s*\%([●•▎⎿>]\|\d\+[.)]\)\s\+]]
+	vim.bo[buf].formatlistpat = [[^\s*\%(\%([●•▎⎿>]\|\d\+[.)]\)\s\+\|\d\+\s[-+ ]\)]]
 	View.wo(win, "number", false)
 	View.wo(win, "foldmethod", "expr")
 	View.wo(win, "foldexpr", "v:lua.require'vc.finder.ui.preview'.foldexpr()")
@@ -93,12 +94,21 @@ end
 ---@param view VC.Finder.PreviewView
 ---@param marks VC.Mark[]
 local function paint(view, marks)
+	local lines = vim.api.nvim_buf_get_lines(view.buf, 0, -1, false)
 	for _, m in ipairs(marks) do
-		local hl = "VCFinderPreview" .. m.hl
+		local hl, row = "VCFinderPreview" .. m.hl, m.l - 1
 		if m.line then
-			vim.api.nvim_buf_set_extmark(view.buf, view.ns, m.l - 1, 0, { line_hl_group = hl })
+			-- A range to the end of the line, not `line_hl_group`: that one leaves the hanging indent of a
+			-- wrapped row unpainted, which cuts a hole in every band.
+			vim.api.nvim_buf_set_extmark(
+				view.buf,
+				view.ns,
+				row,
+				0,
+				{ end_row = row, end_col = #lines[m.l], hl_group = hl, hl_eol = true }
+			)
 		else
-			vim.api.nvim_buf_set_extmark(view.buf, view.ns, m.l - 1, m.c, { end_col = m.e, hl_group = hl })
+			vim.api.nvim_buf_set_extmark(view.buf, view.ns, row, m.c, { end_col = m.e, hl_group = hl })
 		end
 	end
 end

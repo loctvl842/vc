@@ -179,6 +179,30 @@ describe("transcript", function()
 		eq("● m100", lines[#lines])
 	end)
 
+	it("shows a slash command as typed and its output as a result", function()
+		local src = table.concat({
+			F.user(
+				"<command-name>/clear</command-name>\n<command-message>clear</command-message>\n<command-args></command-args>",
+				"t"
+			),
+			F.user(
+				"<command-message>pm-spec</command-message>\n<command-name>/pm-spec</command-name>\n<command-args>a feature</command-args>",
+				"t"
+			),
+			F.user("<local-command-stdout>Compacted</local-command-stdout>", "t"),
+			F.user("<local-command-stderr>nope</local-command-stderr>", "t"),
+		}, "\n")
+		local lines, _, marks = T.render(src)
+		eq({ "> /clear", "", "> /pm-spec a feature", "", "  ⎿  Compacted", "", "  ⎿  nope" }, lines)
+		local errors = {}
+		for _, m in ipairs(marks) do
+			if m.hl == "Error" then
+				errors[#errors + 1] = m.l
+			end
+		end
+		eq({ 7 }, errors)
+	end)
+
 	it("folds thinking behind a one-line label", function()
 		local src = table.concat({
 			F.assistant({ { type = "thinking", thinking = "hmm\nok" }, { type = "text", text = "on it" } }, "t"),
