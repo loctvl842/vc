@@ -301,13 +301,22 @@ local function field_groups(terms, cfg)
 	local out = {}
 	for _, t in ipairs(terms) do
 		local groups
-		if t.quoted then
+		if t.name == "pr" then
+			-- The number as a whole: `pr:8` is #8, not #80.
+			local number = t.value:gsub("^#", "")
+			local term = number ~= "" and make_term(number, cfg.ignorecase, cfg.smartcase, true) or nil
+			if term then
+				term.prefix, term.suffix = true, true
+				groups = { { term } }
+			end
+		elseif t.quoted then
 			local term = make_term(t.value, cfg.ignorecase, cfg.smartcase, true)
 			groups = term and { { term } } or {}
 		else
 			groups = parse_pattern(t.value, cfg.ignorecase, cfg.smartcase)
 		end
-		out[#out + 1] = { name = t.name, groups = groups }
+		-- stylua: ignore
+		if groups then out[#out + 1] = { name = t.name, groups = groups } end
 	end
 	return out
 end
@@ -378,11 +387,13 @@ local function score_item(item, and_groups, fields)
 	local total = 0
 	local all_positions = field_positions
 	for _, f in ipairs(item.fields) do
-		local s, pos =
-			score_text(hay_orig:sub(f.from, f.to), hay_lower:sub(f.from, f.to), and_groups, f.plain, f.from - 1)
-		if s > 0 then
-			total = total + s
-			vim.list_extend(all_positions, pos)
+		if not f.only then
+			local s, pos =
+				score_text(hay_orig:sub(f.from, f.to), hay_lower:sub(f.from, f.to), and_groups, f.plain, f.from - 1)
+			if s > 0 then
+				total = total + s
+				vim.list_extend(all_positions, pos)
+			end
 		end
 	end
 	if total == 0 then
