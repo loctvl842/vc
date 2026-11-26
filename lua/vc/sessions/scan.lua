@@ -206,7 +206,8 @@ function M.parse(text, meta)
 	local last_prompt
 	for i = #candidates, 1, -1 do
 		local t = M.prompt_of(candidates[i])
-		if t and not t:find("^%[Request interrupted") then
+		-- A built-in command such as /compact is stored as plain text, with no command tags to strip.
+		if t and not t:find("^%[Request interrupted") and not t:find("^/[%w:_%-]+$") then
 			last_prompt = t
 			break
 		end

@@ -117,6 +117,15 @@ describe("scan", function()
 			eq("the real one", r.last_prompt)
 		end)
 
+		it("skips a built-in command stored as plain text, but not a path or a command with arguments", function()
+			eq("the real one", scan_lines({ F.title("T"), user("the real one"), user("/compact") }).last_prompt)
+			eq("/etc/hosts", scan_lines({ F.title("T"), user("hi"), user("/etc/hosts") }).last_prompt)
+			eq(
+				"/compact keep the tests",
+				scan_lines({ F.title("T"), user("hi"), user("/compact keep the tests") }).last_prompt
+			)
+		end)
+
 		it("counts a command with arguments as the arguments", function()
 			local r =
 				scan_lines({ F.title("Titled"), user("hello"), F.command("pm-spec", "Improve the  preview", T, "/w") })
