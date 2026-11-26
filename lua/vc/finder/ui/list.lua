@@ -29,6 +29,10 @@ local ListView = View.Instance:extend(function(obj, ns)
 	obj._row_to_item = {}
 end)
 
+-- Above Neovim's default extmark priority (4096), which the selected row's background and every chunk's
+-- own colour use: a match must show its colours over both.
+local MATCH_PRIORITY = 4200
+
 ---@class VC.Finder.UI.List
 local M = {}
 
@@ -226,7 +230,7 @@ local function render_visible(view)
 				view.ns,
 				r - 1,
 				rg.s,
-				{ end_col = rg.e, hl_group = "VCFinderListMatch", priority = 200 }
+				{ end_col = rg.e, hl_group = "VCFinderListMatch", priority = MATCH_PRIORITY }
 			)
 		end
 	end

@@ -305,6 +305,28 @@ describe("finder", function()
 		s:close()
 	end)
 
+	it("draws a match over the selected row's background and the text's own colour", function()
+		local s = open()
+		type_query(s, "'thursday")
+		local list = s.view.list
+		local marks = vim.api.nvim_buf_get_extmarks(list.buf, list.ns, 0, -1, { details = true })
+		local match, row_bg, text
+		for _, m in ipairs(marks) do
+			local d = m[4]
+			if d.hl_group == "VCFinderListMatch" then
+				match = d
+			elseif d.line_hl_group == "VCFinderListCursorLine" then
+				row_bg = d
+			elseif d.hl_group == "VCFinderListPrompt" then
+				text = d
+			end
+		end
+		truthy(match and row_bg and text, "the selected item has a match, a row background and message text")
+		truthy(match.priority > row_bg.priority, "the match is above the selected row")
+		truthy(match.priority > text.priority, "the match is above the text colour")
+		s:close()
+	end)
+
 	it("matches a word of the recap or of the last message from any session", function()
 		local s = open()
 		type_query(s, "'polling")
