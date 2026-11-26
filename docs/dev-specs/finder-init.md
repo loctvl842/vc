@@ -156,18 +156,54 @@ All new (repo is empty of code). Namespace `vc`.
 - Message count: the row shows the size of the full conversation (all `user` + `assistant` records, tool calls and results included). The preview shows the same full conversation. Decided in review.
 
 # Success Criteria
-- [ ] Sessions from all projects in one list, newest first
-- [ ] "New session" first with an empty query, absent as soon as anything is typed
-- [ ] Typing narrows by title or project; preview follows the highlighted row
-- [ ] Preview of a very long session scrolls to its final message
-- [ ] Tool calls, results and thinking are in the preview, auto-folded and closed on open, and can be opened with standard fold keys
-- [ ] Enter on a session opens Claude Code, only window, in that session
-- [ ] Enter on "New session" opens a fresh session in the current directory
-- [ ] Deleted-folder session continues from the current directory with a notice
-- [ ] Esc exits VimClaude and changes nothing
-- [ ] Launch shows the finder immediately; no manual open step exists
-- [ ] Quitting Claude Code brings the finder back, refreshed
-- [ ] At no point is an editor buffer visible
-- [ ] The finder appears instantly with thousands of sessions (bench gate)
-- [ ] No action alters any session; no write under `~/.claude`
-- [ ] `grep -r 'require("beast' lua/` is empty; `make test` is green
+- [x] Sessions from all projects in one list, newest first
+- [x] "New session" first with an empty query, absent as soon as anything is typed
+- [x] Typing narrows by title or project; preview follows the highlighted row
+- [x] Preview of a very long session scrolls to its final message
+- [x] Tool calls, results and thinking are in the preview, auto-folded and closed on open, and can be opened with standard fold keys
+- [x] Enter on a session opens Claude Code, only window, in that session
+- [x] Enter on "New session" opens a fresh session in the current directory
+- [x] Deleted-folder session continues from the current directory with a notice
+- [x] Esc exits VimClaude and changes nothing
+- [x] Launch shows the finder immediately; no manual open step exists
+- [x] Quitting Claude Code brings the finder back, refreshed
+- [x] At no point is an editor buffer visible
+- [x] The finder appears instantly with thousands of sessions (bench gate)
+- [x] No action alters any session; no write under `~/.claude`
+- [x] `grep -r 'require("beast' lua/` is empty; `make test` is green
+
+---
+
+## Completed
+
+2026-11-26 - Phases 1-5 implemented in one pass.
+
+Phases: 1 session index, 2 transcript renderer, 3 finder UI (BeastVim engine trimmed, view layer rewritten for two-row items and full screen), 4 two-screen loop, 5 bench and review fixes.
+
+- `d88c44b` build: add headless spec harness and stylua config
+- `8d6a608` feat(sessions): scan a transcript into a finder row
+- `593c512` feat(sessions): persist the index in a versioned cache
+- `ade1e05` feat(sessions): index every project with incremental rescan
+- `c4b19c3` feat(transcript): render the whole conversation with foldable tool runs
+- `ec73743` feat(finder): copy the match engine from BeastVim, trimmed to one source
+- `46c4625` feat(finder): full-screen input, list and folding preview panes
+- `d80a25c` feat(finder): sessions source, keys and finder session
+- `ca9dcdb` feat(claude): run Claude Code in a full-window terminal
+- `cf5f6ce` feat: finder and Claude Code two-screen loop with entry point
+- `2ebad7d` fix(finder): Esc exits from the prompt, hide filler lines, pad the count
+- `8325269` test(finder): expect the padded count label
+- `05f3fc5` feat(sessions): show partial results while a long rescan runs
+- `2ffef6f` perf(sessions): add index bench over a synthetic store
+- `cb59513` fix(finder): no blank title gap in the empty preview
+- `51d7e02` fix(preview): reread a resumed session and skip empty thinking folds
+- `739d4d9` fix(sessions): cancel an index load when the finder is left
+- `2cb5ba6` fix(finder): restore cursor on close, flush query on Enter, keep selection across refresh
+- `43fcc32` refactor(finder): drop unused topk, async and highlight leftovers
+
+Deviations from the spec:
+- Tests use a small in-repo harness (`test/harness.lua`, `make test`) instead of BeastVim's downloaded Nvim harness; the finder specs are folded into `test/finder/finder_spec.lua`.
+- The list view was rewritten rather than copied (sessions are two buffer rows each); matcher, score, topk, async and the match pipeline are copied and trimmed.
+- Index rescans are batched on the main loop (the allowed fallback) and emit partial results every ~150 ms; a load can be cancelled.
+- Esc runs `qa!` from every pane.
+
+Verification: `make test` 41 passed, 0 failed; `make lint` clean; bench (5,005 sessions, ~200 MB): cold first paint ~190 ms, warm ~48 ms, one new session ~38 ms. End to end in tmux on the real store: finder -> resume -> Ctrl-C twice -> finder -> Esc exits. A code-review pass found 2 blocking and 4 warning issues, all fixed with regression tests. Not done: byte-bounded rescan batches for very large transcripts (a 50 MB file is still read whole in one turn).
