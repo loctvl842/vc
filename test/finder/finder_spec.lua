@@ -251,4 +251,30 @@ describe("finder", function()
 		eq(r.id .. ":" .. grown.size .. ":" .. r.mtime, s.view.preview.shown)
 		s:close()
 	end)
+
+	it("keeps a background on tool lines after their fold is opened", function()
+		local F = require("test.sessions.fixtures")
+		local d = tmpdir()
+		write_file(d .. "/s.jsonl", {
+			F.user("go", "t"),
+			F.assistant({ { type = "tool_use", id = "1", name = "Read", input = {} } }, "t"),
+			F.tool_result("t"),
+			F.assistant({ { type = "text", text = "done" } }, "t"),
+		})
+		local s = open()
+		local r = vim.tbl_extend("force", ROWS[1], { id = "tool", path = d .. "/s.jsonl", title = "T", cwd = "/x" })
+		ui.preview.show(s.view.preview, r)
+		local buf = s.view.preview.buf
+		wait(function()
+			return vim.tbl_contains(vim.api.nvim_buf_get_lines(buf, 0, -1, false), "tool: Read")
+		end)
+		vim.api.nvim_win_call(s.view.preview.win, function()
+			vim.cmd("normal! zR") -- open every fold
+		end)
+		local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+		local at = vim.fn.index(lines, "tool: Read")
+		local marks = vim.api.nvim_buf_get_extmarks(buf, s.view.preview.ns, { at, 0 }, { at, 0 }, { details = true })
+		eq("VCFinderPreviewTool", marks[1][4].line_hl_group)
+		s:close()
+	end)
 end)

@@ -13,6 +13,7 @@ lua/vc/
   claude.lua                  Claude Code in a full-window terminal buffer
   transcript.lua              .jsonl -> markdown lines + fold map (whole conversation)
   debounce.lua                trailing-edge debounce (uv timer)
+  theme.lua                   asks the terminal for its colors (OSC 10/11/4), blend helpers
   sessions/
     scan.lua                  one .jsonl -> row (title, project, cwd, last_ts, msg_count)
     cache.lua                 versioned index file under stdpath("cache")/vc
@@ -33,7 +34,7 @@ scripts/bench-index.lua       cold/warm index timing on synthetic store
 ```
 
 ## Setup Flow
-1. `vc.start` sets UI options (no statusline/tabline/cmdline, no intro) and `termguicolors` off, so the terminal theme paints everything, Claude Code included.
+1. `vc.start` sets UI options (no statusline/tabline/cmdline, no intro) then waits up to 250 ms for the terminal's colors (`theme.refresh`). Answered: `termguicolors` on, tints blended from them, `g:terminal_color_N` set. Not answered: `termguicolors` off, palette indexes.
 2. `show_finder`: reset to one empty window, `finder.open`, `index.load` (cache rows first, then rescan).
 3. Enter -> `open_item` -> `claude.run`; `on_exit` -> `show_finder` again (any exit code).
 4. Esc -> cancel index load, `qa!`.

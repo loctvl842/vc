@@ -15,6 +15,11 @@
 - `index.load({root?, cache_path?}, on_rows(rows, done)) -> cancel`; rows newest first, `cwd_exists` set
 - Row: `id path title project cwd last_ts msg_count size mtime cwd_exists`
 
+## theme
+**Path:** `lua/vc/theme.lua`
+- `refresh(on_done?)` queries OSC 10/11/4 (200 ms timeout), `palette` (nil if unanswered), `activate()`, `parse(seq)`, `mix(a, b, t)`, `hex(rgb)`
+- Re-run from `finder.highlights` on `OptionSet background` and `FocusGained`
+
 ## transcript
 **Path:** `lua/vc/transcript.lua`
 - `render(text, row?) -> lines, folds`; `render_file(path, row, on_done) -> cancel` (chunked)

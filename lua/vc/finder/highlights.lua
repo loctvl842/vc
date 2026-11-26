@@ -26,6 +26,7 @@ local function colors()
 			you = { ctermfg = CYAN },
 			match = { ctermfg = YELLOW, bold = true },
 			select = { ctermbg = light and 7 or 0 },
+			fold = { ctermfg = 8, ctermbg = light and 7 or 0 },
 		}
 	end
 	local function slot(i)
@@ -42,6 +43,7 @@ local function colors()
 		you = slot(BLUE),
 		match = { fg = theme.hex(p[YELLOW]), bg = theme.mix(p.bg, p.fg, 0.2), bold = true },
 		select = { bg = theme.mix(p.bg, p.fg, 0.08) },
+		fold = { fg = theme.mix(p.bg, p.fg, 0.5), bg = theme.mix(p.bg, p.fg, 0.06) },
 	}
 end
 
@@ -69,6 +71,8 @@ function M.apply()
 		PreviewYou = c.you,
 		PreviewClaude = c.green,
 		ListCursorLine = c.select,
+		PreviewTool = { bg = c.fold.bg, ctermbg = c.fold.ctermbg },
+		PreviewFold = c.fold,
 		ListCursor = { blend = 100, nocombine = true },
 	}
 	for name, spec in pairs(groups) do

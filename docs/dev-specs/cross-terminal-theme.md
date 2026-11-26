@@ -147,3 +147,8 @@ Phase 3 decides: if A passes the manual checks, B is not built. If dim text or C
 Verification: `make test` 47 passed, 0 failed; `make lint` clean. Real Neovim in tmux emits only palette codes (90, 36, 32, 40; no RGB), and `background=light` moves the selected row from 40 to 47.
 
 Not verified here (needs a human in a real terminal): flipping Ghostty light/dark live, a light theme's readability, Claude Code colors in the terminal buffer after the 256-color downsampling, and dim text on themes where palette slot 8 equals the background. If any fail, option B in Decisions becomes a follow-up spec.
+
+### Follow-up: option B built (Phase 3 manual check failed)
+Screenshot review showed dim text almost invisible on Monokai Pro (palette slot 8 close to the background) and a weak selected-row tint, so option B was built.
+- `cff0990` feat(theme): blend finder colors from the terminal's real palette (new `lua/vc/theme.lua`; `highlights.lua` blends dim, border, selected row and match tints from the terminal's fg/bg/palette, sets `g:terminal_color_N`, falls back to the cterm palette when the terminal does not answer)
+- Verification: `make test` 56 passed; a fake terminal in a pty answered all 18 OSC queries and the finder drew Monokai Pro yellow/green, a blended dim and a bg tint as 24-bit colors.

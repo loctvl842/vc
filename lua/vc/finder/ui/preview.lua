@@ -51,7 +51,11 @@ function M.create(geo)
 		border = { "┬", "─", "╮", "│", "╯", "─", "┴", "│" },
 		zindex = 102,
 	})
-	View.wo(win, "winhl", "Normal:VCFinderNormal,FloatBorder:VCFinderBorder,FloatTitle:VCFinderPreviewTitle")
+	View.wo(
+		win,
+		"winhl",
+		"Normal:VCFinderNormal,FloatBorder:VCFinderBorder,FloatTitle:VCFinderPreviewTitle,Folded:VCFinderPreviewFold"
+	)
 	View.wo(win, "wrap", true)
 	View.wo(win, "linebreak", true)
 	View.wo(win, "number", false)
@@ -101,6 +105,12 @@ local function set_content(view, lines, folds)
 	vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, lines)
 	vim.bo[view.buf].modifiable = false
 	vim.api.nvim_buf_clear_namespace(view.buf, view.ns, 0, -1)
+	-- Tool calls, results and thinking keep their background when a fold is opened.
+	for _, f in ipairs(folds) do
+		for l = f.start, f.stop do
+			vim.api.nvim_buf_set_extmark(view.buf, view.ns, l - 1, 0, { line_hl_group = "VCFinderPreviewTool" })
+		end
+	end
 	local speaker
 	for i, l in ipairs(lines) do
 		local hl
