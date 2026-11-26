@@ -16,6 +16,63 @@ local M = {}
 ---@field ignorecase boolean
 ---@field entropy number selectivity score for ordering
 
+--- One term of a pattern: its operators (`!`, `^`, `'`, `$`), case rule and selectivity. A `literal` term has no
+--- operators and matches its text as written, spaces included.
+---@param text string
+---@param ignorecase boolean
+---@param smartcase boolean
+---@param literal? boolean
+---@return VC.Finder.Term?  nil when nothing is left of the text
+local function make_term(text, ignorecase, smartcase, literal)
+	local inverse, exact, prefix, suffix = false, literal == true, false, false
+	local entropy = 0
+	if not literal then
+		if text:sub(1, 1) == "!" then
+			inverse = true
+			text = text:sub(2)
+			entropy = entropy - 1
+		end
+		if text:sub(1, 1) == "^" then
+			prefix = true
+			text = text:sub(2)
+			entropy = entropy + 20
+		elseif text:sub(1, 1) == "'" then
+			exact = true
+			text = text:sub(2)
+			entropy = entropy + 10
+		end
+		if text:sub(-1) == "$" then
+			suffix = true
+			text = text:sub(1, -2)
+			entropy = entropy + 20
+		end
+	end
+	-- stylua: ignore
+	if text == "" then return nil end
+	local ic = ignorecase
+	if smartcase and text:match("%u") then
+		ic = false
+	end
+	-- Entropy: length + rare chars + case sensitivity
+	local rare_chars = #text:gsub("[%w%s]", "")
+	entropy = entropy + math.min(#text, 20) + rare_chars * 2
+	if not ic then
+		entropy = entropy * 2
+	end
+	if ic then
+		text = text:lower()
+	end
+	return {
+		text = text,
+		inverse = inverse,
+		exact = exact,
+		prefix = prefix,
+		suffix = suffix,
+		ignorecase = ic,
+		entropy = entropy,
+	}
+end
+
 ---@param raw string
 ---@param ignorecase boolean
 ---@param smartcase boolean
@@ -25,52 +82,7 @@ local function parse_pattern(raw, ignorecase, smartcase)
 	for _, and_part in ipairs(vim.split(raw, "%s+", { trimempty = true })) do
 		local or_terms = {} ---@type VC.Finder.Term[]
 		for _, or_part in ipairs(vim.split(and_part, "|", { plain = true, trimempty = true })) do
-			local text = or_part
-			local inverse, exact, prefix, suffix = false, false, false, false
-			local entropy = 0
-			if text:sub(1, 1) == "!" then
-				inverse = true
-				text = text:sub(2)
-				entropy = entropy - 1
-			end
-			if text:sub(1, 1) == "^" then
-				prefix = true
-				text = text:sub(2)
-				entropy = entropy + 20
-			elseif text:sub(1, 1) == "'" then
-				exact = true
-				text = text:sub(2)
-				entropy = entropy + 10
-			end
-			if text:sub(-1) == "$" then
-				suffix = true
-				text = text:sub(1, -2)
-				entropy = entropy + 20
-			end
-			if text ~= "" then
-				local ic = ignorecase
-				if smartcase and text:match("%u") then
-					ic = false
-				end
-				-- Entropy: length + rare chars + case sensitivity
-				local rare_chars = #text:gsub("[%w%s]", "")
-				entropy = entropy + math.min(#text, 20) + rare_chars * 2
-				if not ic then
-					entropy = entropy * 2
-				end
-				if ic then
-					text = text:lower()
-				end
-				or_terms[#or_terms + 1] = {
-					text = text,
-					inverse = inverse,
-					exact = exact,
-					prefix = prefix,
-					suffix = suffix,
-					ignorecase = ic,
-					entropy = entropy,
-				}
-			end
+			or_terms[#or_terms + 1] = make_term(or_part, ignorecase, smartcase)
 		end
 		if #or_terms > 0 then
 			and_groups[#and_groups + 1] = or_terms
@@ -276,14 +288,81 @@ local function score_text(hay_orig, hay_lower, and_groups, plain, base)
 	return total, all_positions
 end
 
+---@class VC.Finder.FieldGroups
+---@field name string
+---@field groups VC.Finder.Term[][]
+
+--- The `field:value` terms of a query as matcher groups. A quoted value is one exact phrase; any other value
+--- is parsed like a normal word, so the field matches it the way the same word would match there.
+---@param terms VC.Finder.FieldTerm[]
+---@param cfg VC.Finder.MatcherOpts
+---@return VC.Finder.FieldGroups[]
+local function field_groups(terms, cfg)
+	local out = {}
+	for _, t in ipairs(terms) do
+		local groups
+		if t.name == "pr" then
+			-- The number as a whole: `pr:8` is #8, not #80.
+			local number = t.value:gsub("^#", "")
+			local term = number ~= "" and make_term(number, cfg.ignorecase, cfg.smartcase, true) or nil
+			if term then
+				term.prefix, term.suffix = true, true
+				groups = { { term } }
+			end
+		elseif t.quoted then
+			local term = make_term(t.value, cfg.ignorecase, cfg.smartcase, true)
+			groups = term and { { term } } or {}
+		else
+			groups = parse_pattern(t.value, cfg.ignorecase, cfg.smartcase)
+		end
+		-- stylua: ignore
+		if groups then out[#out + 1] = { name = t.name, groups = groups } end
+	end
+	return out
+end
+
+--- Every field term must match the span of its own name. Scores are not kept: the ranking comes from the
+--- rest of the query.
+---@param item VC.Finder.Item
+---@param hay_orig string
+---@param hay_lower string
+---@param fields VC.Finder.FieldGroups[]
+---@return integer[]? positions nil when a term does not match
+local function match_fields(item, hay_orig, hay_lower, fields)
+	local positions = {}
+	for _, ft in ipairs(fields) do
+		local span
+		for _, f in ipairs(item.fields or {}) do
+			if f.name == ft.name then
+				span = f
+				break
+			end
+		end
+		-- stylua: ignore
+		if not span then return nil end
+		local s, pos = score_text(
+			hay_orig:sub(span.from, span.to),
+			hay_lower:sub(span.from, span.to),
+			ft.groups,
+			span.plain,
+			span.from - 1
+		)
+		-- stylua: ignore
+		if s == 0 then return nil end
+		vim.list_extend(positions, pos)
+	end
+	return positions
+end
+
 --- An item with `fields` matches when the whole query matches inside any one field; its score is the sum over
 --- the fields that match. Without `fields`, the query is matched against `item.text` as one string.
 ---@param item VC.Finder.Item
 ---@param and_groups VC.Finder.Term[][]
+---@param fields VC.Finder.FieldGroups[]
 ---@return number score 0 = excluded
 ---@return integer[]? positions 1-based byte indices into item.text
-local function score_item(item, and_groups)
-	if #and_groups == 0 then
+local function score_item(item, and_groups, fields)
+	if #and_groups == 0 and #fields == 0 then
 		return 1, nil
 	end
 	local hay_orig = item.text or ""
@@ -293,17 +372,28 @@ local function score_item(item, and_groups)
 		hay_lower = hay_orig:lower()
 		item._lower = hay_lower
 	end
+	local field_positions = {}
+	if #fields > 0 then
+		field_positions = match_fields(item, hay_orig, hay_lower, fields)
+		-- stylua: ignore
+		if not field_positions then return 0, nil end
+		if #and_groups == 0 then
+			return 1, field_positions
+		end
+	end
 	if not item.fields then
 		return score_text(hay_orig, hay_lower, and_groups, false, 0)
 	end
 	local total = 0
-	local all_positions = {}
+	local all_positions = field_positions
 	for _, f in ipairs(item.fields) do
-		local s, pos =
-			score_text(hay_orig:sub(f.from, f.to), hay_lower:sub(f.from, f.to), and_groups, f.plain, f.from - 1)
-		if s > 0 then
-			total = total + s
-			vim.list_extend(all_positions, pos)
+		if not f.only then
+			local s, pos =
+				score_text(hay_orig:sub(f.from, f.to), hay_lower:sub(f.from, f.to), and_groups, f.plain, f.from - 1)
+			if s > 0 then
+				total = total + s
+				vim.list_extend(all_positions, pos)
+			end
 		end
 	end
 	if total == 0 then
@@ -338,7 +428,8 @@ end
 ---@field ignorecase boolean
 
 ---@class VC.Finder.MatchState
----@field pattern string the pattern used in the last run
+---@field pattern string the text typed in the last run
+---@field has_terms boolean the last run had `field:value` terms
 ---@field scores table<integer, number> map of item.idx → score from last run
 ---@field total integer how many items matched (score > 0); `matched` only holds the best `topk_capacity` of them
 
@@ -350,11 +441,12 @@ end
 ---@param topk_capacity? integer defaults to 1000
 function M.run(items, filter, cfg, on_done, prev_state, topk_capacity)
 	return async.spawn(function()
-		local pattern = filter.pattern
+		local text = filter.text
+		local terms = filter.terms
 		local scores = {} ---@type table<integer, number>
 
 		-- Empty pattern fast-path: all items match with score=1, insertion order
-		if pattern == "" then
+		if filter.pattern == "" and #terms == 0 then
 			local capacity = topk_capacity or 1000
 			local count = math.min(#items, capacity)
 			local result = {}
@@ -367,19 +459,24 @@ function M.run(items, filter, cfg, on_done, prev_state, topk_capacity)
 				end
 			end
 			vim.schedule(function()
-				on_done(result, { pattern = pattern, scores = scores, total = #items })
+				on_done(result, { pattern = text, has_terms = false, scores = scores, total = #items })
 			end)
 			return
 		end
 
-		local groups = parse_pattern(pattern, cfg.ignorecase, cfg.smartcase)
+		local groups = parse_pattern(filter.pattern, cfg.ignorecase, cfg.smartcase)
+		local fields = field_groups(terms, cfg)
 		local capacity = topk_capacity or 1000
 		local topk = TopK(capacity, true) -- equal scores keep the index order (newest first)
 		local total = 0
 		local yield = async.yielder(1)
 
-		-- Determine if we can use subset elimination
-		local use_subset = prev_state and is_superset(prev_state.pattern, pattern)
+		-- Determine if we can use subset elimination. A field term can stop being one (`cwd` -> `cwd:`), so a query
+		-- that has one, or follows one that had, is scored from scratch.
+		local use_subset = prev_state
+			and not prev_state.has_terms
+			and #terms == 0
+			and is_superset(prev_state.pattern, text)
 		---@diagnostic disable-next-line: need-check-nil
 		local prev_scores = use_subset and prev_state.scores or nil
 
@@ -397,7 +494,7 @@ function M.run(items, filter, cfg, on_done, prev_state, topk_capacity)
 				item.positions = nil
 				scores[item.idx] = 0
 			else
-				local s, pos = score_item(item, groups)
+				local s, pos = score_item(item, groups, fields)
 				item.score = s
 				item.positions = pos
 				scores[item.idx] = s
@@ -421,7 +518,7 @@ function M.run(items, filter, cfg, on_done, prev_state, topk_capacity)
 
 		local matched = topk:sorted()
 		vim.schedule(function()
-			on_done(matched, { pattern = pattern, scores = scores, total = total })
+			on_done(matched, { pattern = text, has_terms = #terms > 0, scores = scores, total = total })
 		end)
 	end)
 end

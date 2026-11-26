@@ -71,18 +71,30 @@ function M.items(rows, with_new)
 		local text = row.title .. "  " .. location
 		local item = { idx = #items + 1, score = 1, row = row }
 		item.fields = {
-			{ from = 1, to = #row.title },
-			{ from = #row.title + 3, to = #text },
+			{ name = "title", from = 1, to = #row.title },
+			{ name = "cwd", from = #row.title + 3, to = #text },
 		}
 		if row.recap then
 			item.recap_at = #text + 3
 			text = text .. "  " .. row.recap
-			item.fields[#item.fields + 1] = { from = item.recap_at, to = #text, plain = true }
+			item.fields[#item.fields + 1] = { name = "recap", from = item.recap_at, to = #text, plain = true }
 		end
 		if row.last_prompt then
 			item.prompt_at = #text + 3
 			text = text .. "  " .. row.last_prompt
-			item.fields[#item.fields + 1] = { from = item.prompt_at, to = #text, plain = true }
+			item.fields[#item.fields + 1] = { name = "msg", from = item.prompt_at, to = #text, plain = true }
+		end
+		-- The branch and the PR number are searched by `branch:` and `pr:` only; an ordinary word never matches them.
+		if row.branch then
+			item.branch_at = #text + 3
+			text = text .. "  " .. row.branch
+			item.fields[#item.fields + 1] =
+				{ name = "branch", from = item.branch_at, to = #text, plain = true, only = true }
+		end
+		if row.pr then
+			item.pr_at = #text + 3
+			text = text .. "  " .. row.pr
+			item.fields[#item.fields + 1] = { name = "pr", from = item.pr_at, to = #text, plain = true, only = true }
 		end
 		item.text = text
 		items[#items + 1] = item
@@ -266,10 +278,14 @@ function M.format(item, width, opts)
 	-- keeps at least 8 columns, so a long branch gives way first.
 	local left_w = width - GUTTER - #INDENT - 2 - vim.fn.strdisplaywidth(stats) - #gone
 	local pr_chip = row.pr and " · #" .. row.pr or ""
-	local branch = row.branch
+	local branch, branch_kept = row.branch, 0
 	if branch then
 		local room = left_w - 8 - vim.fn.strdisplaywidth(pr_chip) - vim.fn.strdisplaywidth(" · ")
-		branch = room >= 4 and fit(branch, room, "head") or nil
+		if room >= 4 then
+			branch, branch_kept = fit(branch, room, "head")
+		else
+			branch = nil
+		end
 	end
 	local chips = (branch and " · " .. branch or "") .. pr_chip
 	local shown_loc, loc_kept = fit(location, math.max(8, left_w - vim.fn.strdisplaywidth(chips)), "tail")
@@ -316,6 +332,20 @@ function M.format(item, width, opts)
 				local col = #INDENT + #"…" + (k - cut) - 1
 				ranges[#ranges + 1] = { row = 2, s = col, e = col + 1 }
 			end
+		end
+	end
+	-- The chips follow the folder on its row: " · branch" then " · #pr".
+	local chips_col = #INDENT + #shown_loc
+	local branch_col = chips_col + #" · "
+	local pr_col = chips_col + #(branch and " · " .. branch or "") + #" · #"
+	for _, p in ipairs(positions) do
+		local k = item.branch_at and branch and p - item.branch_at
+		if k and k >= 0 and k < branch_kept then
+			ranges[#ranges + 1] = { row = 2, s = branch_col + k, e = branch_col + k + 1 }
+		end
+		k = item.pr_at and p - item.pr_at
+		if k and k >= 0 and k < #tostring(row.pr) then
+			ranges[#ranges + 1] = { row = 2, s = pr_col + k, e = pr_col + k + 1 }
 		end
 	end
 	for _, m in ipairs(messages) do

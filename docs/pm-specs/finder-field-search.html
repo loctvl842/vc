@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec: Finder field search</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --mock:#f3f1ec; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; --mock:#11100e; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:36px 0; }
+  h1 { margin:0 0 8px; } h2 { border-bottom:1px solid var(--line); padding-bottom:6px; }
+  .lead { color:var(--muted); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 16px; margin:10px 0; }
+  summary { cursor:pointer; }
+  pre { font:13px/1.35 ui-monospace, Menlo, monospace; overflow-x:auto; margin:10px 0 0; }
+  .mock { margin:16px 0; background:var(--mock); border:1px solid var(--line); border-radius:10px; padding:10px 14px; }
+  .mock figcaption { font-weight:600; color:var(--accent); font-size:14px; }
+  code { background:var(--mock); padding:1px 5px; border-radius:4px; font-size:.9em; }
+  li { margin:6px 0; } ul.check { list-style:none; padding-left:0; }
+  .syntax { font:15px ui-monospace, Menlo, monospace; }
+  .syntax .f { color:var(--accent); font-weight:700; }
+</style>
+</head>
+<body>
+<main>
+<header data-spec="summary">
+  <h1>Finder field search</h1>
+  <p class="lead">Type <code>field:word</code> in the search box to narrow the session list by one part of a session. What is left of the query searches the remaining sessions as it does today.</p>
+  <p class="syntax"><span class="f">cwd:</span>jarvix <span class="f">title:</span>nvim startup</p>
+  <p class="lead">folder matches jarvix &rarr; title matches nvim &rarr; "startup" searched as today</p>
+</header>
+
+<section data-spec="problem">
+  <h2>Problem</h2>
+  <p>Every typed word is searched in title, folder, recap and last message at once. <code>jarvix</code> finds the jarvix folder, but also every session that merely mentions it. The user cannot say "in the jarvix project, about nvim".</p>
+  <p data-spec="why-now" class="lead">The list now shows and searches more text per session, so accidental matches are more frequent.</p>
+</section>
+
+<section data-spec="target-behavior">
+  <h2>Target behavior</h2>
+  <p class="lead"><code>[cwd:]</code> marks a recognised prefix drawn in its own colour; <code>^</code> marks highlighted matches.</p>
+<figure class="mock" data-spec="target-state-1"><figcaption>State 1 - Opened, nothing typed</figcaption><pre>STATE 1 - Opened, nothing typed (as today):
+┌ Claude Sessions ─────────────────────────────────┐
+│ &gt; _                                      12 / 12 │
+├──────────────────────────────────────────────────┤
+│▌ Fix flaky login test                            │
+│    ~/work/jarvix · main · #8       2m ago  34 msg│
+│    You   › replace the wait with polling         │
+│                                                  │
+│  Tune nvim startup time                          │
+│    ~/work/jarvix · perf            1d ago  21 msg│
+│    You   › profile it with --startuptime         │
+│                                                  │
+│  Fix nvim statusline colours                     │
+│    ~/dotfiles                      3d ago   9 msg│
+│    You   › jarvix uses the same palette, copy it │
+└──────────────────────────────────────────────────┘</pre></figure>
+<figure class="mock" data-spec="target-state-2"><figcaption>State 2 - One field term</figcaption><pre>STATE 2 - One field term: cwd:jarvix
+Only sessions whose folder matches &quot;jarvix&quot; remain. The third session
+above is gone: &quot;jarvix&quot; is only in its message, not its folder.
+┌ Claude Sessions ─────────────────────────────────┐
+│ &gt; [cwd:]jarvix_                           2 / 12 │
+├──────────────────────────────────────────────────┤
+│▌ Fix flaky login test                            │
+│    ~/work/jarvix · main · #8       2m ago  34 msg│
+│           ^^^^^^                                 │
+│    You   › replace the wait with polling         │
+│                                                  │
+│  Tune nvim startup time                          │
+│    ~/work/jarvix · perf            1d ago  21 msg│
+│           ^^^^^^                                 │
+│    You   › profile it with --startuptime         │
+└──────────────────────────────────────────────────┘</pre></figure>
+<figure class="mock" data-spec="target-state-3"><figcaption>State 3 - Two field terms plus a normal query</figcaption><pre>STATE 3 - Two field terms plus a normal query: cwd:jarvix title:nvim startup
+cwd narrows first, then title, then &quot;startup&quot; searches what is left
+(title, folder, recap and last message, as today).
+┌ Claude Sessions ─────────────────────────────────┐
+│ &gt; [cwd:]jarvix [title:]nvim startup_      1 / 12 │
+├──────────────────────────────────────────────────┤
+│▌ Tune nvim startup time                          │
+│       ^^^^ ^^^^^^^                               │
+│    ~/work/jarvix · perf            1d ago  21 msg│
+│           ^^^^^^                                 │
+│    You   › profile it with --startuptime         │
+│                              ^^^^^^^             │
+└──────────────────────────────────────────────────┘</pre></figure>
+<figure class="mock" data-spec="target-state-4"><figcaption>State 4 - Field terms only</figcaption><pre>STATE 4 - Field terms only, no normal query: cwd:jarvix title:nvim
+Remaining sessions keep the usual order, latest activity first.
+┌ Claude Sessions ─────────────────────────────────┐
+│ &gt; [cwd:]jarvix [title:]nvim_              1 / 12 │
+├──────────────────────────────────────────────────┤
+│▌ Tune nvim startup time                          │
+│    ~/work/jarvix · perf            1d ago  21 msg│
+│    You   › profile it with --startuptime         │
+└──────────────────────────────────────────────────┘</pre></figure>
+<figure class="mock" data-spec="target-state-5"><figcaption>State 5 - Nothing satisfies every term</figcaption><pre>STATE 5 - Nothing satisfies every term: cwd:jarvix title:docker
+┌ Claude Sessions ─────────────────────────────────┐
+│ &gt; [cwd:]jarvix [title:]docker_            0 / 12 │
+├──────────────────────────────────────────────────┤
+│                                                  │
+│    No sessions match "cwd:jarvix title:docker"   │
+│                                                  │
+└──────────────────────────────────────────────────┘</pre></figure>
+<figure class="mock" data-spec="target-state-6"><figcaption>State 6 - Half-typed and unknown names</figcaption><pre>STATE 6 - Typing in progress and unknown names (nothing is narrowed):
+  &gt; cwd:_              &quot;cwd:&quot; has no word yet. Nothing is narrowed,
+                       the list is the full list.
+  &gt; cwd:j_             Narrowed as soon as one letter follows the colon.
+  &gt; ticket:42_         &quot;ticket&quot; is not a field, so &quot;ticket:42&quot; is
+                       searched as ordinary text, as today.
+  &gt; title:&quot;fix log&quot;_   A phrase with spaces goes in double quotes.</pre></figure>
+<figure class="mock" data-spec="target-state-7"><figcaption>Fields you can use</figcaption><pre>Fields you can use:
+
+  cwd:     the folder the session ran in (the full path as shown)
+  title:   the session title
+  branch:  the last git branch the session was on
+  pr:      the pull request number, with or without the #  (pr:8)
+  recap:   the recap Claude Code wrote
+  msg:     the last thing you wrote in the session</pre></figure>
+</section>
+
+<section data-spec="scenarios">
+  <h2>Scenarios</h2>
+<details class="card" data-spec="scenario-1" open><summary><b>1</b> Narrow by folder, then by title (happy path)</summary><pre>Step 1: The user opens the finder
+  12 sessions, newest first.
+
+Step 2: The user types &quot;cwd:jarvix&quot;
+  &quot;cwd:&quot; turns the field colour as soon as the colon is typed. Once
+  &quot;jarvix&quot; follows, 2 sessions remain: those whose folder matches.
+  The match is highlighted in the folder row.
+
+Step 3: The user continues with &quot; title:nvim&quot;
+  Of those 2, only the session whose title matches &quot;nvim&quot; remains.
+
+Step 4: The user presses Enter
+  The session continues in Claude Code, as today.</pre></details>
+<details class="card" data-spec="scenario-2"><summary><b>2</b> Field terms plus a normal query</summary><pre>Step 1: The user types &quot;cwd:jarvix startup&quot;
+  Sessions in a jarvix folder remain. &quot;startup&quot; is then searched in
+  their title, folder, recap and last message, exactly as it would be
+  without the field term. Best matches come first.
+
+Step 2: The user types the normal word first: &quot;startup cwd:jarvix&quot;
+  Same result. The order of terms in the box does not matter, and a
+  field term can sit anywhere.</pre></details>
+<details class="card" data-spec="scenario-3"><summary><b>3</b> Same word, with and without a field</summary><pre>Step 1: The user types &quot;jarvix&quot;
+  Sessions with jarvix in the folder, title, recap or last message.
+  The session about nvim palettes that only mentions jarvix in its
+  last message is in the list.
+
+Step 2: The user types &quot;cwd:jarvix&quot;
+  That session leaves the list. Only folder matches remain.</pre></details>
+<details class="card" data-spec="scenario-4"><summary><b>4</b> Two terms for the same field</summary><pre>Step 1: The user types &quot;cwd:work cwd:jarvix&quot;
+  Both must match the folder. ~/work/jarvix remains;
+  ~/work/api-server and ~/old/jarvix do not.</pre></details>
+<details class="card" data-spec="scenario-5"><summary><b>5</b> Nothing matches</summary><pre>Step 1: The user types &quot;cwd:jarvix title:docker&quot;
+  The list is empty and the counter reads 0 / 12.
+
+Step 2: The user deletes &quot;title:docker&quot;
+  The two jarvix sessions are back.</pre></details>
+<details class="card" data-spec="scenario-6"><summary><b>6</b> Typing a term letter by letter</summary><pre>Step 1: The user types &quot;c&quot;, &quot;cw&quot;, &quot;cwd&quot;
+  Ordinary search: nothing special yet.
+
+Step 2: The user types &quot;:&quot;
+  &quot;cwd:&quot; has no word after it, so the list does not change. The
+  prefix switches to the field colour: it was recognised.
+
+Step 3: The user types &quot;j&quot;
+  The list narrows to sessions whose folder matches &quot;j&quot;.</pre></details>
+<details class="card" data-spec="scenario-7"><summary><b>7</b> Not a field</summary><pre>Step 1: The user types &quot;ticket:42&quot;
+  &quot;ticket&quot; is not a field name, so &quot;ticket:42&quot; is searched as plain
+  text across title, folder, recap and last message, as today.
+  The word stays in the normal colour: nothing was recognised.
+
+Step 2: The user types a URL &quot;https://example.com&quot;
+  &quot;https&quot; is not a field name. It is searched as plain text.</pre></details>
+<details class="card" data-spec="scenario-8"><summary><b>8</b> A phrase with spaces</summary><pre>Step 1: The user types title:fix login
+  &quot;login&quot; is a separate normal word, because a space ends the value.
+  The list shows sessions whose title matches &quot;fix&quot; and which also
+  mention &quot;login&quot; anywhere.
+
+Step 2: The user types title:&quot;fix login&quot;
+  Now both words must match together in the title:
+  &quot;Fix flaky login test&quot; does NOT match, &quot;Fix login redirect&quot; does.</pre></details>
+<details class="card" data-spec="scenario-9"><summary><b>9</b> Match style follows the field</summary><pre>Step 1: The user types &quot;title:nvm&quot;
+  Titles match loosely, letters in order, as today:
+  &quot;Tune nvim startup time&quot; matches (n, v, then m of &quot;nvim&quot;),
+  and so does &quot;Nested virtual machine notes&quot;.
+
+Step 2: The user types &quot;msg:nvm&quot;
+  Last messages match only when &quot;nvm&quot; appears as written.
+  A message with &quot;nvim&quot; does not match; one with &quot;nvm use 20&quot; does.</pre></details>
+<details class="card" data-spec="scenario-10"><summary><b>10</b> Case</summary><pre>Step 1: The user types &quot;cwd:Jarvix&quot;
+  A capital letter makes the term case sensitive, as in normal search.
+  ~/work/jarvix does not match; ~/work/Jarvix does.
+
+Step 2: The user types &quot;cwd:jarvix&quot;
+  Both match.</pre></details>
+</section>
+
+<section data-spec="behavior-rules">
+  <h2>Behavior rules</h2>
+  <ul><li><b>Shape of a term:</b> <code>field:value</code>, written with no space around the colon. The value ends at the next space, or at the closing quote when it starts with a double quote.</li>
+<li><b>Fields:</b> <code>cwd</code>, <code>title</code>, <code>branch</code>, <code>pr</code>, <code>recap</code>, <code>msg</code>. Names are lowercase. Any other word before a colon is ordinary text.</li>
+<li><b>Every term must match:</b> field terms and normal words combine with AND. The order of terms in the box does not change the result.</li>
+<li><b>Narrowing order:</b> field terms narrow the list first; the normal words then search what is left. Ranking comes only from the normal words. With no normal words, the order is latest activity first.</li>
+<li><b>Match style per field:</b> <code>cwd</code> and <code>title</code> match letters spread in order, as folder and title do today. <code>branch</code>, <code>recap</code> and <code>msg</code> match the value as written, contiguous. <code>pr</code> matches the number exactly: <code>pr:8</code> finds #8, not #80.</li>
+<li><b>Case:</b> lowercase value ignores case; a value with a capital letter is case sensitive, as today.</li>
+<li><b>Empty value:</b> <code>cwd:</code> with nothing after it narrows nothing. Nothing is hidden while the user is half-way through typing a term.</li>
+<li><b>Same field twice:</b> both terms must match that field.</li>
+<li><b>Sessions with no value for a field:</b> a session with no recap never matches <code>recap:x</code>; one with no branch or PR never matches <code>branch:x</code> or <code>pr:x</code>.</li>
+<li><b>Highlight:</b> the matched letters are highlighted inside the field they matched, on wrapped lines too. The <code>field:</code> prefix has its own colour only when the name is recognised.</li>
+<li><b>Counter and empty state:</b> the counter counts sessions that satisfy every term. When none do, the list shows whatever a normal search with no hits shows today.</li>
+<li><b>Unchanged:</b> the &quot;New session&quot; item, the preview, the key hints, and how a query without any field term behaves, character for character.</li></ul>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul class="check"><li><label><input type="checkbox"> <code>cwd:jarvix</code> shows only sessions whose folder matches jarvix, not ones that merely mention it</label></li>
+<li><label><input type="checkbox"> <code>cwd:jarvix title:nvim</code> shows the sessions that satisfy both</label></li>
+<li><label><input type="checkbox"> <code>cwd:jarvix startup</code> narrows by folder, then searches &quot;startup&quot; as today, best match first</label></li>
+<li><label><input type="checkbox"> Term order in the box makes no difference to which sessions are shown</label></li>
+<li><label><input type="checkbox"> A recognised <code>field:</code> prefix has its own colour; an unknown prefix does not</label></li>
+<li><label><input type="checkbox"> <code>cwd:</code> with no value leaves the list unchanged</label></li>
+<li><label><input type="checkbox"> <code>ticket:42</code> and URLs are searched as plain text</label></li>
+<li><label><input type="checkbox"> <code>title:&quot;fix login&quot;</code> requires both words together in the title</label></li>
+<li><label><input type="checkbox"> <code>title</code> and <code>cwd</code> match loosely; <code>recap</code>, <code>msg</code> and <code>branch</code> match as written; <code>pr:8</code> does not match #80</label></li>
+<li><label><input type="checkbox"> Matches are highlighted inside the field they matched</label></li>
+<li><label><input type="checkbox"> A query with no field term gives the same list and order as before</label></li>
+<li><label><input type="checkbox"> The counter and the empty state reflect the narrowed list</label></li></ul>
+</section>
+
+<section data-spec="out-of-scope">
+  <h2>Out of scope</h2>
+  <ul><li><b>Negation</b> (<code>-cwd:work</code>, <code>NOT</code>): not asked for; can be added without changing this syntax.</li>
+<li><b>OR between terms</b> and grouping: every term is an AND, as today.</li>
+<li><b>Date and size fields</b> (<code>after:</code>, <code>msgs:&gt;20</code>): need their own value syntax.</li>
+<li><b>Field-name completion or a hint popup:</b> the coloured prefix is the only feedback for now.</li>
+<li><b>A project-wide search of every folder at once</b> or changing which sessions are listed: only narrowing of the existing list.</li>
+<li><b>Saving a query or setting a default field filter:</b> each opening of the finder starts empty, as today.</li></ul>
+</section>
+</main>
+</body>
+</html>

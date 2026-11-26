@@ -56,8 +56,8 @@ end
 --- Items → list buffer → footer → preview.
 ---@param session VC.Finder.Session
 function M.render(session)
-	local pattern = session.query.filter.pattern
-	local empty = pattern ~= "" and ('No sessions match "%s"'):format(pattern) or "No sessions"
+	local text = session.query.filter.text
+	local empty = text ~= "" and ('No sessions match "%s"'):format(text) or "No sessions"
 	if session._keep_id then
 		for i, item in ipairs(session.query.matched) do
 			if item.row and item.row.id == session._keep_id then
