@@ -3,6 +3,8 @@ local cfg = {
 	prompt_prefix = " ",
 	selection_prefix = "▌",
 	debounce = { normal_ms = 30, preview_ms = 60 },
+	-- Conversation preview: result lines shown before the rest folds, and the width of a call's arguments.
+	preview = { result_lines = 3, args_width = 80 },
 	matcher = { smartcase = true, ignorecase = true },
 }
 

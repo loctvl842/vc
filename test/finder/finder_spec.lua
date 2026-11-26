@@ -252,29 +252,55 @@ describe("finder", function()
 		s:close()
 	end)
 
-	it("keeps a background on tool lines after their fold is opened", function()
+	it("shows tool calls as one line and keeps long results folded until opened", function()
 		local F = require("test.sessions.fixtures")
 		local d = tmpdir()
+		local out = {}
+		for i = 1, 8 do
+			out[i] = "row " .. i
+		end
 		write_file(d .. "/s.jsonl", {
 			F.user("go", "t"),
-			F.assistant({ { type = "tool_use", id = "1", name = "Read", input = {} } }, "t"),
-			F.tool_result("t"),
+			F.assistant({ { type = "tool_use", id = "1", name = "Bash", input = { command = "ls" } } }, "t"),
+			F.tool_result("t", nil, { id = "1", text = table.concat(out, "\n") }),
 			F.assistant({ { type = "text", text = "done" } }, "t"),
 		})
 		local s = open()
 		local r = vim.tbl_extend("force", ROWS[1], { id = "tool", path = d .. "/s.jsonl", title = "T", cwd = "/x" })
 		ui.preview.show(s.view.preview, r)
-		local buf = s.view.preview.buf
+		local buf, win = s.view.preview.buf, s.view.preview.win
 		wait(function()
-			return vim.tbl_contains(vim.api.nvim_buf_get_lines(buf, 0, -1, false), "tool: Read")
-		end)
-		vim.api.nvim_win_call(s.view.preview.win, function()
-			vim.cmd("normal! zR") -- open every fold
+			return vim.tbl_contains(vim.api.nvim_buf_get_lines(buf, 0, -1, false), "● Bash(ls)")
 		end)
 		local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-		local at = vim.fn.index(lines, "tool: Read")
-		local marks = vim.api.nvim_buf_get_extmarks(buf, s.view.preview.ns, { at, 0 }, { at, 0 }, { details = true })
-		eq("VCFinderPreviewTool", marks[1][4].line_hl_group)
+		local at = vim.fn.index(lines, "     row 4") + 1
+		vim.api.nvim_win_call(win, function()
+			eq(at, vim.fn.foldclosed(at)) -- the hidden rows are closed
+			eq("     … +5 lines", vim.fn.foldtextresult(at))
+			vim.cmd("normal! zR")
+			eq(-1, vim.fn.foldclosed(at))
+		end)
+		s:close()
+	end)
+
+	it("paints the document's marks as extmarks", function()
+		local F = require("test.sessions.fixtures")
+		local d = tmpdir()
+		write_file(d .. "/s.jsonl", { F.user("hello", "t") })
+		local s = open()
+		local r = vim.tbl_extend("force", ROWS[1], { id = "marks", path = d .. "/s.jsonl", title = "T", cwd = "/x" })
+		ui.preview.show(s.view.preview, r)
+		local buf = s.view.preview.buf
+		wait(function()
+			return vim.tbl_contains(vim.api.nvim_buf_get_lines(buf, 0, -1, false), "> hello")
+		end)
+		local marks = vim.api.nvim_buf_get_extmarks(buf, s.view.preview.ns, 0, -1, { details = true })
+		local groups = {}
+		for _, m in ipairs(marks) do
+			groups[m[4].hl_group or m[4].line_hl_group] = true
+		end
+		truthy(groups.VCFinderPreviewPrompt)
+		truthy(groups.VCFinderPreviewBand)
 		s:close()
 	end)
 end)

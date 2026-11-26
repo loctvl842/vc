@@ -1,5 +1,5 @@
---- The conversation preview. It shows a whole transcript (see vc.transcript); tool calls, tool
---- results and thinking are folded away at first and open with the usual fold keys.
+--- The conversation preview. It shows a whole transcript drawn like Claude Code (see vc.transcript); long
+--- tool results and thinking are folded away at first and open with the usual fold keys.
 local View = require("vc.finder.view")
 local transcript = require("vc.transcript")
 
@@ -18,7 +18,7 @@ local CACHE_SIZE = 4
 
 ---@type table<integer, { level: table<integer, string>, label: table<integer, string> }> fold data per buffer
 local fold_data = {}
----@type { id: string, lines: string[], folds: VC.Fold[] }[] most recently shown first; `id` includes size and mtime so a resumed session is read again
+---@type { id: string, lines: string[], folds: VC.Fold[], marks: VC.Mark[] }[] most recently shown first; `id` includes size and mtime so a resumed session is read again
 local cache = {}
 
 --- 'foldexpr' of the preview: folds come from the transcript's fold map.
@@ -28,12 +28,11 @@ function M.foldexpr()
 	return d and d.level[vim.v.lnum] or "0"
 end
 
---- 'foldtext' of the preview: the fold's label, with how many lines are tucked away.
+--- 'foldtext' of the preview: the fold's label, which already says what is tucked away.
 ---@return string
 function M.foldtext()
 	local d = fold_data[vim.api.nvim_get_current_buf()]
-	local label = d and d.label[vim.v.foldstart] or "▸ details"
-	return label .. " (" .. (vim.v.foldend - vim.v.foldstart + 1) .. " lines)"
+	return d and d.label[vim.v.foldstart] or ("… +" .. (vim.v.foldend - vim.v.foldstart + 1) .. " lines")
 end
 
 ---@param geo VC.Finder.Layout.Geometry
@@ -86,10 +85,25 @@ local function set_title(view, title)
 	)
 end
 
+--- Paint the document's marks: byte ranges get a group, whole lines get it as a line highlight.
+---@param view VC.Finder.PreviewView
+---@param marks VC.Mark[]
+local function paint(view, marks)
+	for _, m in ipairs(marks) do
+		local hl = "VCFinderPreview" .. m.hl
+		if m.line then
+			vim.api.nvim_buf_set_extmark(view.buf, view.ns, m.l - 1, 0, { line_hl_group = hl })
+		else
+			vim.api.nvim_buf_set_extmark(view.buf, view.ns, m.l - 1, m.c, { end_col = m.e, hl_group = hl })
+		end
+	end
+end
+
 ---@param view VC.Finder.PreviewView
 ---@param lines string[]
 ---@param folds VC.Fold[]
-local function set_content(view, lines, folds)
+---@param marks VC.Mark[]
+local function set_content(view, lines, folds, marks)
 	-- stylua: ignore
 	if not view:is_valid() then return end
 	local level, label = {}, {}
@@ -105,28 +119,7 @@ local function set_content(view, lines, folds)
 	vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, lines)
 	vim.bo[view.buf].modifiable = false
 	vim.api.nvim_buf_clear_namespace(view.buf, view.ns, 0, -1)
-	-- Tool calls, results and thinking keep their background when a fold is opened.
-	for _, f in ipairs(folds) do
-		for l = f.start, f.stop do
-			vim.api.nvim_buf_set_extmark(view.buf, view.ns, l - 1, 0, { line_hl_group = "VCFinderPreviewTool" })
-		end
-	end
-	local speaker
-	for i, l in ipairs(lines) do
-		local hl
-		if l == "## You" then
-			hl, speaker = "VCFinderPreviewYou", "You"
-		elseif l == "## Claude" then
-			hl, speaker = "VCFinderPreviewClaude", "Claude"
-		elseif i == 1 and l:sub(1, 2) == "# " then
-			hl = "VCFinderPreviewHeading"
-		elseif i == 2 then
-			hl = "VCFinderListDim"
-		end
-		if hl then
-			vim.api.nvim_buf_set_extmark(view.buf, view.ns, i - 1, 0, { line_hl_group = hl })
-		end
-	end
+	paint(view, marks)
 	vim.api.nvim_win_call(view.win, function()
 		vim.cmd("normal! zx") -- recompute folds, all closed
 		vim.cmd("normal! gg")
@@ -135,7 +128,7 @@ local function set_content(view, lines, folds)
 end
 
 ---@param id string
----@return { lines: string[], folds: VC.Fold[] }?
+---@return { lines: string[], folds: VC.Fold[], marks: VC.Mark[] }?
 local function cache_get(id)
 	for i, e in ipairs(cache) do
 		if e.id == id then
@@ -164,7 +157,7 @@ function M.note(view, title, lines)
 	cancel(view)
 	view.shown = nil
 	set_title(view, title)
-	set_content(view, lines, {})
+	set_content(view, lines, {}, {})
 end
 
 --- Show the whole conversation of a session.
@@ -179,16 +172,20 @@ function M.show(view, row)
 	set_title(view, row.title)
 	local hit = cache_get(key)
 	if hit then
-		set_content(view, hit.lines, hit.folds)
+		set_content(view, hit.lines, hit.folds, hit.marks)
 		return
 	end
-	set_content(view, { "Loading..." }, {})
-	view._cancel = transcript.render_file(row.path, row, function(lines, folds)
+	set_content(view, { "Loading..." }, {}, {})
+	view._cancel = transcript.render_file(row.path, row, function(lines, folds, marks)
 		view._cancel = nil
-		table.insert(cache, 1, { id = key, lines = lines, folds = folds })
+		table.insert(cache, 1, { id = key, lines = lines, folds = folds, marks = marks })
 		cache[CACHE_SIZE + 1] = nil
 		if view.shown == key then
-			set_content(view, lines, folds)
+			set_content(view, lines, folds, marks)
+		end
+	end, function(lines, folds, marks)
+		if view.shown == key then
+			set_content(view, lines, folds, marks)
 		end
 	end)
 end
@@ -200,7 +197,7 @@ function M.clear(view)
 	cancel(view)
 	view.shown = nil
 	set_title(view, "")
-	set_content(view, {}, {})
+	set_content(view, {}, {}, {})
 end
 
 return M

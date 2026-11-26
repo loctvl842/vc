@@ -27,14 +27,27 @@ function M.assistant(blocks, ts, cwd)
 	})
 end
 
-function M.tool_result(ts, cwd)
+--- A tool result record. `extra`: id (tool_use_id, default "t1"), text, is_error, rec (toolUseResult).
+function M.tool_result(ts, cwd, extra)
+	extra = extra or {}
 	return j({
 		type = "user",
 		isSidechain = false,
 		timestamp = ts,
 		cwd = cwd,
 		sessionId = "s",
-		message = { role = "user", content = { { type = "tool_result", tool_use_id = "t1", content = "ok" } } },
+		toolUseResult = extra.rec,
+		message = {
+			role = "user",
+			content = {
+				{
+					type = "tool_result",
+					tool_use_id = extra.id or "t1",
+					content = extra.text or "ok",
+					is_error = extra.is_error,
+				},
+			},
+		},
 	})
 end
 
