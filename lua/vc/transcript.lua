@@ -143,7 +143,8 @@ Builder.__index = Builder
 
 ---@param header? string[]
 function M.builder(header)
-	local self = setmetatable({ blocks = {}, calls = {}, rendered = 0, out = new_out(), cwd = nil }, Builder)
+	local self =
+		setmetatable({ blocks = {}, calls = {}, rendered = 0, group = nil, out = new_out(), cwd = nil }, Builder)
 	for _, l in ipairs(header or {}) do
 		self.out:whole(self.out:add(l), "Meta")
 	end
@@ -287,6 +288,16 @@ local function render_diff(out, d)
 	end
 end
 
+--- End the run of folded calls: its lines fold behind the summary.
+function Builder:close_group()
+	local g = self.group
+	self.group = nil
+	if g and #self.out.lines >= g.start then
+		self.out.folds[#self.out.folds + 1] =
+			{ start = g.start, stop = #self.out.lines, label = "  " .. toolline.summary(g.counts) }
+	end
+end
+
 --- "✻ Cogitated for 2m 0s · done Thursday 11:10 PM": how long a turn took and when it ended.
 ---@param ms integer
 ---@param ts? string ISO time of the record
@@ -304,8 +315,17 @@ end
 ---@param b VC.Block
 function Builder:render_block(b)
 	local out = self.out
+	-- Calls that come one after another fold into one summary line; a failed call stays on its own.
+	local category = b.kind == "call" and not (b.result and b.result.is_error) and toolline.category(b.name)
+	if self.group and not category then
+		self:close_group()
+	end
 	if b.kind ~= "attach" then
 		out:gap() -- a picture hangs directly under the prompt it came with
+	end
+	if category then
+		self.group = self.group or { start = #out.lines + 1, counts = {} }
+		self.group.counts[category] = (self.group.counts[category] or 0) + 1
 	end
 	if b.kind == "prompt" or b.kind == "reply" then
 		if b.kind == "prompt" then
@@ -385,6 +405,7 @@ end
 ---@return string[] lines, VC.Fold[] folds, VC.Mark[] marks
 function Builder:finish()
 	self:render(true)
+	self:close_group()
 	return self.out.lines, self.out.folds, self.out.marks
 end
 

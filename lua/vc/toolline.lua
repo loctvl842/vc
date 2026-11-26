@@ -66,6 +66,36 @@ function M.call(name, input, cwd)
 	return name, "(" .. truncate(arg, config.preview.args_width) .. ")"
 end
 
+-- Tools Claude Code folds into a "Ran 2 shell commands" summary when they come one after another.
+local CATEGORY = { Bash = "shell", Read = "read", Grep = "search", Glob = "search" }
+local SUMMARY = { -- in the order Claude Code lists them
+	{ "search", "searched for %d pattern", "searched for %d patterns" },
+	{ "read", "read %d file", "read %d files" },
+	{ "shell", "ran %d shell command", "ran %d shell commands" },
+}
+
+--- What a tool call counts as in a folded run, or nil when it always shows on its own line.
+---@param name string
+---@return string?
+function M.category(name)
+	return CATEGORY[name]
+end
+
+--- "Searched for 1 pattern, read 2 files, ran 3 shell commands" for the counts of a run.
+---@param counts table<string, integer>
+---@return string
+function M.summary(counts)
+	local parts = {}
+	for _, s in ipairs(SUMMARY) do
+		local n = counts[s[1]]
+		if n then
+			parts[#parts + 1] = s[n == 1 and 2 or 3]:format(n)
+		end
+	end
+	local text = table.concat(parts, ", ")
+	return text:sub(1, 1):upper() .. text:sub(2)
+end
+
 --- Flatten a tool_result `content` (string or array of blocks) to text.
 ---@param content any
 ---@return string

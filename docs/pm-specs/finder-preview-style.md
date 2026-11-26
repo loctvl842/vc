@@ -218,7 +218,7 @@ Step 1: A reply contains a table, an image, or markdown the preview cannot style
 - Bold, italic, underline and strikethrough use the terminal's text attributes, so they work in any terminal that Claude Code itself works in
 - Tool results show only their first few lines; the remainder is folded and opens with the usual fold keys
 - Thinking is closed by default and opens with the fold keys
-- Each tool call line is always visible (not hidden inside a larger fold); only its long output is folded
+- Tool calls that follow each other (shell commands, file reads, searches) fold into one dim summary line such as `Ran 2 shell commands` or `Read 1 file, ran 2 shell commands`, as in Claude Code; opening it shows every call with its result. A failed call and every other kind of tool call (edits, agents, MCP) stay on their own visible lines
 - Text copied from the preview is the readable text, without markdown markers
 - The preview stays read-only; selection and fold keys behave as they do today
 - Pane width changes (resizing the finder) re-wrap the text without losing the position
@@ -231,7 +231,7 @@ Step 1: A reply contains a table, an image, or markdown the preview cannot style
 - [ ] No raw `**`, backticks, `##`, or link syntax appears in any reply
 - [ ] Bold, italic, headings, lists, quotes, inline code, links and strikethrough each look distinct
 - [ ] Code blocks are highlighted for at least the common languages and look like code when the language is unknown
-- [ ] Every tool call is one line; results are summarised and expand in place
+- [ ] Runs of shell, read and search calls fold into one summary line; each call is one line when opened, with its results summarised and expanding in place
 - [ ] File edits show as a colored diff with line numbers
 - [ ] Dark and light terminal themes are both readable; flipping the theme repaints live
 - [ ] Selecting through sessions rapidly never freezes typing or leaves a half-styled screen

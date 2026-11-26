@@ -36,7 +36,7 @@ describe("transcript", function()
 		}, "\n")
 		local lines, folds = T.render(src)
 		eq({ "❯ go", "", "● Bash(npm test)", "  ⎿  12 passed", "", "● done" }, lines)
-		eq({}, folds)
+		eq({ { start = 3, stop = 4, label = "  Ran 1 shell command" } }, folds)
 	end)
 
 	it("pairs parallel calls with their own results", function()
@@ -62,11 +62,12 @@ describe("transcript", function()
 			F.tool_result("t", nil, { id = "a", text = table.concat(out, "\n") }),
 		}, "\n")
 		local lines, folds = T.render(src)
-		eq(1, #folds)
+		eq(2, #folds) -- the hidden rows, inside the folded run of calls
 		eq("     … +6 lines", folds[1].label)
 		eq("     line 4", lines[folds[1].start])
 		eq("     line 9", lines[folds[1].stop])
 		eq(#lines, folds[1].stop)
+		eq({ start = 1, stop = #lines, label = "  Ran 1 shell command" }, folds[2])
 	end)
 
 	it("does not fold a result that is only one line too long", function()
@@ -75,8 +76,46 @@ describe("transcript", function()
 			F.tool_result("t", nil, { id = "a", text = "1\n2\n3\n4" }),
 		}, "\n")
 		local lines, folds = T.render(src)
-		eq({}, folds)
+		eq({ { start = 1, stop = #lines, label = "  Ran 1 shell command" } }, folds) -- only the run itself
 		eq("     4", lines[#lines])
+	end)
+
+	it("folds calls that follow each other into one summary, and counts them by kind", function()
+		local function call(id, name, input)
+			return F.assistant({ { type = "tool_use", id = id, name = name, input = input } }, "t")
+		end
+		local src = table.concat({
+			call("a", "Grep", { pattern = "x" }),
+			F.tool_result("t", nil, { id = "a", text = "hit" }),
+			call("b", "Read", { file_path = "/p/a.lua" }),
+			F.tool_result("t", nil, { id = "b", text = "src" }),
+			call("c", "Read", { file_path = "/p/b.lua" }),
+			F.tool_result("t", nil, { id = "c", text = "src" }),
+			call("d", "Bash", { command = "ls" }),
+			F.tool_result("t", nil, { id = "d", text = "x" }),
+			F.assistant({ { type = "text", text = "done" } }, "t"),
+			call("e", "Bash", { command = "pwd" }),
+			F.tool_result("t", nil, { id = "e", text = "/" }),
+			call("f", "Bash", { command = "false" }),
+			F.tool_result("t", nil, { id = "f", text = "boom", is_error = true }),
+		}, "\n")
+		local lines, folds = T.render(src)
+		local labels = {}
+		for _, f in ipairs(folds) do
+			labels[#labels + 1] = f.label
+		end
+		eq({
+			"  Searched for 1 pattern, read 2 files, ran 1 shell command",
+			"  Ran 1 shell command",
+		}, labels)
+		eq("● Grep(x)", lines[folds[1].start])
+		eq("  ⎿  x", lines[folds[1].stop])
+		eq("● Bash(false)", lines[#lines - 1]) -- the failed call is not folded away
+	end)
+
+	it("never folds the other tools", function()
+		local src = F.assistant({ { type = "tool_use", id = "a", name = "Edit", input = { file_path = "/x" } } }, "t")
+		eq({}, select(2, T.render(src)))
 	end)
 
 	it("marks a failed result as an error", function()

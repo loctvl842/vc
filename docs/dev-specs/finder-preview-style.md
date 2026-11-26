@@ -213,3 +213,7 @@ Where the build differs from this spec:
 - Extra tunable: `config.preview.diff_lines` (24) and `args_width` (80) next to `result_lines` (3).
 - The first render publishes the top of the document early (`on_partial`), then replaces it without moving the cursor.
 - Constants and colors are still the guesses from the PM spec; they await the Claude Code screenshots.
+
+Changed after reviewing Claude Code screenshots:
+- Decision 1 reversed: consecutive Bash / Read / Grep / Glob calls fold into one `Ran 2 shell commands` summary (failed calls and other tools stay visible); folds now nest (a long result inside a run).
+- Lists use `-`; blank lines follow the source text; bare URLs are links; inline code is a fixed lavender; slash commands, task notifications, turn durations and pasted images are drawn like Claude Code.

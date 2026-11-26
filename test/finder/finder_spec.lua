@@ -468,7 +468,12 @@ describe("finder", function()
 		local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
 		local at = vim.fn.index(lines, "     row 4") + 1
 		vim.api.nvim_win_call(win, function()
-			eq(at, vim.fn.foldclosed(at)) -- the hidden rows are closed
+			local call = vim.fn.index(lines, "● Bash(ls)") + 1
+			eq(call, vim.fn.foldclosed(call)) -- the run of calls is one line
+			eq("  Ran 1 shell command", vim.fn.foldtextresult(call))
+			vim.cmd(call .. "foldopen")
+			eq(-1, vim.fn.foldclosed(call))
+			eq(at, vim.fn.foldclosed(at)) -- the long result inside it is still folded
 			eq("     … +5 lines", vim.fn.foldtextresult(at))
 			vim.cmd("normal! zR")
 			eq(-1, vim.fn.foldclosed(at))

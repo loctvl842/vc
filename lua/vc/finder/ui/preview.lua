@@ -122,13 +122,17 @@ end
 local function set_content(view, lines, folds, marks, keep_view)
 	-- stylua: ignore
 	if not view:is_valid() then return end
-	local level, label = {}, {}
+	-- Folds nest (a long result inside a folded run of calls): a line's level is how many folds hold it,
+	-- and a line that opens a fold says so.
+	local level, label, depth = {}, {}, {}
 	for _, f in ipairs(folds) do
-		level[f.start] = ">1"
 		label[f.start] = f.label
-		for l = f.start + 1, f.stop do
-			level[l] = "1"
+		for l = f.start, f.stop do
+			depth[l] = (depth[l] or 0) + 1
 		end
+	end
+	for l, d in pairs(depth) do
+		level[l] = (label[l] and ">" or "") .. d
 	end
 	fold_data[view.buf] = { level = level, label = label }
 	vim.bo[view.buf].modifiable = true
