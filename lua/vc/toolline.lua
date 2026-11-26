@@ -5,8 +5,18 @@ local config = require("vc.finder.config")
 local M = {}
 
 -- Input keys that carry the most telling argument, by priority.
-local ARG_KEYS =
-	{ "command", "file_path", "notebook_path", "path", "pattern", "url", "query", "description", "skill", "prompt" }
+local ARG_KEYS = {
+	"command",
+	"file_path",
+	"notebook_path",
+	"pattern",
+	"path",
+	"url",
+	"query",
+	"description",
+	"skill",
+	"prompt",
+}
 local PATH_KEYS = { file_path = true, notebook_path = true, path = true }
 
 --- Drop ANSI escapes and carriage returns; neither belongs in a buffer line.
@@ -105,6 +115,13 @@ end
 ---@param rec table? the record's `toolUseResult`
 ---@return { summary: string, lines: string[], marks: VC.Mark[] }?
 function M.diff(rec)
+	local ok, d = pcall(M._diff, rec) -- a malformed patch must not stop the whole preview
+	return ok and d or nil
+end
+
+---@param rec table?
+---@return { summary: string, lines: string[], marks: VC.Mark[] }?
+function M._diff(rec)
 	if type(rec) ~= "table" then
 		return
 	end
@@ -137,7 +154,7 @@ function M.diff(rec)
 			elseif sign == "-" then
 				no, old_no, removed = old_no, old_no + 1, removed + 1
 			else
-				no, old_no, new_no = old_no, old_no + 1, new_no + 1
+				no, old_no, new_no = new_no, old_no + 1, new_no + 1
 			end
 			lines[#lines + 1] = string.format("%" .. width .. "d %s", no, M.clean(raw))
 			local l, gutter = #lines, width + 2

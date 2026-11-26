@@ -23,7 +23,6 @@ local function colors()
 			cyan = { ctermfg = CYAN },
 			green = { ctermfg = GREEN },
 			red = { ctermfg = RED },
-			you = { ctermfg = CYAN },
 			blue = { ctermfg = BLUE },
 			magenta = { ctermfg = MAGENTA },
 			match = { ctermfg = YELLOW, bold = true },
@@ -32,7 +31,6 @@ local function colors()
 			add_sign = { ctermfg = GREEN, bold = true },
 			delete = { ctermfg = RED },
 			delete_sign = { ctermfg = RED, bold = true },
-			fold = { ctermfg = 8, ctermbg = light and 7 or 0 },
 		}
 	end
 	local function slot(i)
@@ -46,7 +44,6 @@ local function colors()
 		cyan = slot(CYAN),
 		green = slot(GREEN),
 		red = slot(RED),
-		you = slot(BLUE),
 		blue = slot(BLUE),
 		magenta = slot(MAGENTA),
 		match = { fg = theme.hex(p[YELLOW]), bg = theme.mix(p.bg, p.fg, 0.2), bold = true },
@@ -56,7 +53,6 @@ local function colors()
 		add_sign = { fg = theme.mix(p.bg, p[GREEN], 0.6), bg = theme.mix(p.bg, p[GREEN], 0.15), bold = true },
 		delete = { bg = theme.mix(p.bg, p[RED], 0.15) },
 		delete_sign = { fg = theme.mix(p.bg, p[RED], 0.6), bg = theme.mix(p.bg, p[RED], 0.15), bold = true },
-		fold = { fg = theme.mix(p.bg, p.fg, 0.5), bg = theme.mix(p.bg, p.fg, 0.06) },
 	}
 end
 

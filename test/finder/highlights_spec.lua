@@ -72,6 +72,22 @@ describe("finder highlights", function()
 		eq(true, hl("PreviewLink").underline)
 	end)
 
+	it("redefines the conversation groups when the terminal's colors change", function()
+		theme.palette = { fg = { 250, 250, 250 }, bg = { 10, 10, 10 } }
+		for i = 0, 15 do
+			theme.palette[i] = { i * 10, 100, 100 }
+		end
+		highlights.apply()
+		local dark = hl("PreviewDiffAdd").bg
+		theme.palette.bg = { 240, 240, 240 }
+		highlights.apply()
+		truthy(hl("PreviewDiffAdd").bg ~= dark, "the diff band follows the new background")
+		theme.palette = nil
+		vim.o.termguicolors = false
+		highlights.apply()
+		eq(2, hl("PreviewDiffAdd").ctermfg)
+	end)
+
 	it("tints the selected row for the dark background", function()
 		eq(0, hl("ListCursorLine").ctermbg)
 	end)

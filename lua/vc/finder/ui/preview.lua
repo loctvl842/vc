@@ -107,7 +107,8 @@ end
 ---@param lines string[]
 ---@param folds VC.Fold[]
 ---@param marks VC.Mark[]
-local function set_content(view, lines, folds, marks)
+---@param keep_view? boolean the cursor stays where the reader left it (the rest of a partial render)
+local function set_content(view, lines, folds, marks, keep_view)
 	-- stylua: ignore
 	if not view:is_valid() then return end
 	local level, label = {}, {}
@@ -126,9 +127,13 @@ local function set_content(view, lines, folds, marks)
 	paint(view, marks)
 	vim.api.nvim_win_call(view.win, function()
 		vim.cmd("normal! zx") -- recompute folds, all closed
-		vim.cmd("normal! gg")
+		if not keep_view then
+			vim.cmd("normal! gg")
+		end
 	end)
-	pcall(vim.api.nvim_win_set_cursor, view.win, { 1, 0 })
+	if not keep_view then
+		pcall(vim.api.nvim_win_set_cursor, view.win, { 1, 0 })
+	end
 end
 
 ---@param id string
@@ -180,15 +185,17 @@ function M.show(view, row)
 		return
 	end
 	set_content(view, { "Loading..." }, {}, {})
+	local partial = false
 	view._cancel = transcript.render_file(row.path, row, function(lines, folds, marks)
 		view._cancel = nil
 		table.insert(cache, 1, { id = key, lines = lines, folds = folds, marks = marks })
 		cache[CACHE_SIZE + 1] = nil
 		if view.shown == key then
-			set_content(view, lines, folds, marks)
+			set_content(view, lines, folds, marks, partial)
 		end
 	end, function(lines, folds, marks)
 		if view.shown == key then
+			partial = true
 			set_content(view, lines, folds, marks)
 		end
 	end)

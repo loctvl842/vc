@@ -73,6 +73,7 @@ function M.marks(code, lang)
 		local lines = vim.split(code, "\n", { plain = true })
 		local query = ts.query.get(parser_lang, "highlights")
 		local root = ts.get_string_parser(code, parser_lang):parse()[1]:root()
+		local seen = {} -- overlapping captures repeat the same range
 		for id, node in query:iter_captures(root, code) do
 			local hl = role(query.captures[id])
 			if hl then
@@ -80,7 +81,9 @@ function M.marks(code, lang)
 				for row = sr, er do
 					local line = lines[row + 1] or ""
 					local from, to = row == sr and sc or 0, row == er and ec or #line
-					if from < to then
+					local key = row .. ":" .. from .. ":" .. to .. hl
+					if from < to and not seen[key] then
+						seen[key] = true
 						marks[#marks + 1] = { l = row + 1, c = from, e = math.min(to, #line), hl = hl }
 					end
 				end

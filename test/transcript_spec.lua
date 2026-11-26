@@ -149,6 +149,36 @@ describe("transcript", function()
 		eq({ "● Edit", "  ⎿  String to replace not found" }, (T.render(src)))
 	end)
 
+	it("shows a block it cannot draw as its type instead of dropping it", function()
+		local src = F.assistant({ { type = "server_tool_use", id = "s", name = "web_search", input = {} } }, "t")
+		eq({ "● web_search" }, (T.render(src)))
+		eq({ "● [document]" }, (T.render(F.assistant({ { type = "document" } }, "t"))))
+	end)
+
+	it("keeps mark columns right on every line of a multi-line reply", function()
+		local _, _, marks = T.render(F.assistant({ { type = "text", text = "one\n\nsee **bold** here" } }, "t"))
+		local bold
+		for _, m in ipairs(marks) do
+			if m.hl == "Bold" then
+				bold = m
+			end
+		end
+		-- line 3 is "  see bold here": two-space indent, then "see "
+		eq({ 3, 6, 10 }, { bold.l, bold.c, bold.e })
+	end)
+
+	it("pairs a result that arrives long after its call", function()
+		local parts =
+			{ F.assistant({ { type = "tool_use", id = "late", name = "Bash", input = { command = "x" } } }, "t") }
+		for i = 1, 100 do
+			parts[#parts + 1] = F.assistant({ { type = "text", text = "m" .. i } }, "t")
+		end
+		parts[#parts + 1] = F.tool_result("t", nil, { id = "late", text = "finally" })
+		local lines = T.render(table.concat(parts, "\n"))
+		eq({ "● Bash(x)", "  ⎿  finally" }, { lines[1], lines[2] })
+		eq("● m100", lines[#lines])
+	end)
+
 	it("folds thinking behind a one-line label", function()
 		local src = table.concat({
 			F.assistant({ { type = "thinking", thinking = "hmm\nok" }, { type = "text", text = "on it" } }, "t"),
@@ -192,6 +222,25 @@ describe("transcript", function()
 		parts[#parts + 1] = F.assistant({ { type = "text", text = "THE END" } }, "t")
 		local lines = T.render(table.concat(parts, "\n"))
 		eq("● THE END", lines[#lines])
+	end)
+
+	it("render_file hands over the top of a long session before the rest", function()
+		local d = tmpdir()
+		local parts = {}
+		for i = 1, 1500 do
+			parts[#parts + 1] = F.user("q" .. i, "t")
+		end
+		write_file(d .. "/s.jsonl", parts)
+		local partial, done
+		T.render_file(d .. "/s.jsonl", { title = "Big", cwd = "/x", msg_count = 1500 }, function(lines)
+			done = #lines
+		end, function(lines)
+			partial = partial or #lines
+		end)
+		wait(function()
+			return done ~= nil
+		end)
+		truthy(partial and partial >= 80 and partial < done, "a partial render came first")
 	end)
 
 	it("render_file yields the same result asynchronously", function()

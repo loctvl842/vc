@@ -155,6 +155,7 @@ function Builder:feed(line)
 		return
 	end
 	local results = 0
+	-- One `toolUseResult` per record: with several results in it, none can say which one it belongs to.
 	for _, b in ipairs(content) do
 		results = results + (b.type == "tool_result" and 1 or 0)
 	end
@@ -165,7 +166,7 @@ function Builder:feed(line)
 			self:push({ kind = kind, text = "[image]" })
 		elseif b.type == "thinking" and type(b.thinking) == "string" and b.thinking:find("%S") then
 			self:push({ kind = "thinking", text = b.thinking })
-		elseif b.type == "tool_use" then
+		elseif b.type == "tool_use" or b.type == "server_tool_use" then
 			local call = self:push({ kind = "call", id = b.id, name = tostring(b.name), input = b.input })
 			if b.id then
 				self.calls[b.id] = call
@@ -182,6 +183,13 @@ function Builder:feed(line)
 			else
 				self:push({ kind = "result", result = res })
 			end
+		elseif
+			type(b.type) == "string"
+			and b.type ~= "text"
+			and b.type ~= "thinking"
+			and b.type ~= "redacted_thinking"
+		then
+			self:push({ kind = kind, text = "[" .. b.type .. "]" }) -- a block this preview cannot draw is still shown
 		end
 	end
 end
@@ -305,7 +313,7 @@ function Builder:render(final, max)
 		end
 		n = n + 1
 	end
-	return self.rendered >= limit and (not final or limit == #blocks)
+	return self.rendered >= limit
 end
 
 --- Render what is left and return the document.
