@@ -64,6 +64,11 @@ local actions = {
 			vim.cmd("stopinsert")
 		end
 	end,
+	refresh = function(s)
+		if s.on_refresh then
+			s.on_refresh()
+		end
+	end,
 	noop = function() end,
 }
 
@@ -87,13 +92,14 @@ local pick = {
 	{ "<CR>", "confirm" },
 	{ "<Esc>", "exit" },
 	{ "<C-c>", "exit", modes = { "i", "n" } },
+	{ "<C-r>", "refresh", modes = { "i", "n" } },
 }
 
 -- The preview cannot be changed; these keys would only fail with E21 and a "Press ENTER" prompt.
 ---@type VC.Finder.KeyBinding[]
 local readonly = {}
 local edit_keys =
-	"i I a A o O gi gI c C s S d D x X r R p P gp gP ]p [p J gJ u U <C-r> . ~ g~ gu gU g? < > = ! & <C-a> <C-x> <Del> <Insert>"
+	"i I a A o O gi gI c C s S d D x X r R p P gp gP ]p [p J gJ u U . ~ g~ gu gU g? < > = ! & <C-a> <C-x> <Del> <Insert>"
 for _, key in ipairs(vim.split(edit_keys, " ")) do
 	table.insert(readonly, { key, "noop" })
 end
@@ -118,6 +124,7 @@ local panes = {
 				{ "<C-j>", "down" },
 				{ "<C-k>", "up" },
 				{ "<Esc>", "focus_input" },
+				{ "<C-r>", "refresh" },
 				{ "<C-h>", "focus_input" },
 				{ "<C-l>", "noop" },
 			},

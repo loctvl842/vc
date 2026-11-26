@@ -15,6 +15,7 @@ local ui = require("vc.finder.ui")
 ---@field host VC.Finder.Host
 ---@field on_confirm fun(item: VC.Finder.Item)
 ---@field on_exit fun()
+---@field on_refresh? fun()
 ---@field augroup? integer
 ---@field _keep_id? string session to keep highlighted when the rows change
 local Session = {}
@@ -29,6 +30,7 @@ local instance
 ---@field cwd? string
 ---@field on_confirm fun(item: VC.Finder.Item) Enter on a row
 ---@field on_exit fun() the user left the finder (Esc)
+---@field on_refresh? fun() the user asked for a fresh scan of the sessions (Ctrl-R)
 
 ---@param opts VC.Finder.OpenOpts
 ---@return VC.Finder.Session
@@ -43,6 +45,7 @@ function M.open(opts)
 		cwd = opts.cwd or vim.fn.getcwd(),
 		on_confirm = opts.on_confirm,
 		on_exit = opts.on_exit,
+		on_refresh = opts.on_refresh,
 	}, Session)
 	instance = session
 
