@@ -49,7 +49,7 @@ A pure parser (`vc.finder.fieldquery`) splits the typed text into field terms (`
 ---
 
 # Architecture Changes
-- New `lua/vc/finder/fieldquery.lua` - pure tokeniser: `parse(text) -> {terms, rest, spans}`; field-name table.
+- New `lua/vc/finder/fieldquery.lua` - pure tokeniser: `parse(text) -> {terms, rest, prefixes}`; field-name table.
 - Modified `lua/vc/finder/filter.lua` - holds `text`, `terms`, `pattern` (the remainder); `update(text)` parses.
 - Modified `lua/vc/finder/matcher.lua` - extract `make_term`; field-term pass in `score_item`; state keyed on `filter.text`; subset elimination only without field terms.
 - Modified `lua/vc/finder/source.lua` - named field spans; hidden spans for branch and PR; `branch_at`/`pr_at`; `format` highlight mapping for both.
@@ -65,7 +65,7 @@ A pure parser (`vc.finder.fieldquery`) splits the typed text into field terms (`
 Mergeable on its own: works without prompt colours or branch/PR.
 
 1. **Tokeniser** (File: `lua/vc/finder/fieldquery.lua`)
-   - Action: `parse(text)` scans the text. A term is a whitespace-delimited token `name:value` where `name` is one of `cwd title branch pr recap msg` (lowercase, directly followed by `:`) at the start of the token. Value is the rest of the token; if it starts with `"`, the value runs to the next `"` (or the end of the text when unterminated) and `quoted = true`. Returns `terms = {{name, value, quoted}}` only for non-empty values, `rest` = the text with every recognised term (empty-valued ones too) removed and spaces collapsed, and `spans = {{s, e}}` of each recognised `name:` prefix (empty values included) for colouring. Unknown names stay in `rest`.
+   - Action: `parse(text)` scans the text. A term is a whitespace-delimited token `name:value` where `name` is one of `cwd title branch pr recap msg` (lowercase, directly followed by `:`) at the start of the token. Value is the rest of the token; if it starts with `"`, the value runs to the next `"` (or the end of the text when unterminated) and `quoted = true`. Returns `terms = {{name, value, quoted}}` only for non-empty values, `rest` = the text with every recognised term (empty-valued ones too) removed and spaces collapsed, and `prefixes = {{s, e}}` of each recognised `name:` prefix (empty values included) for colouring. Unknown names stay in `rest`.
    - Why: single, testable place for the syntax; pure so it needs no UI.
    - Depends on: None
    - Risk: Low
@@ -112,7 +112,7 @@ Mergeable on its own: works without prompt colours or branch/PR.
    - Risk: Low
 
 2. **Prefix extmarks** (File: `lua/vc/finder/ui/input.lua`)
-   - Action: a `M.mark_fields(view)` that clears its own namespace and sets an extmark with `hl_group = "VCFinderField"` on each `fieldquery` span of the current text (offset by the prompt prefix length). Call it from the `TextChangedI`/`TextChanged` autocmd directly, not through the debounce, so the colour appears as the colon is typed.
+   - Action: a `M.mark_fields(view)` that clears its own namespace and sets an extmark with `hl_group = "VCFinderField"` on each `fieldquery` prefix of the current text (offset by the prompt prefix length). Call it from the `TextChangedI`/`TextChanged` autocmd directly, not through the debounce, so the colour appears as the colon is typed.
    - Why: PM scenario 6 - the prefix changes colour on the colon, before any list change.
    - Depends on: Phase 1 Step 1, Step 1
    - Risk: Low
