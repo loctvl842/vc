@@ -177,6 +177,25 @@ describe("finder", function()
 		eq(before, #vim.api.nvim_list_wins())
 	end)
 
+	it("Esc in the preview goes back to the prompt instead of exiting", function()
+		local s, ev = open()
+		vim.api.nvim_set_current_win(s.view.preview.win)
+		press(s, "preview", "<Esc>")
+		eq(s.view.input.win, vim.api.nvim_get_current_win())
+		eq(false, ev.exited)
+		s:close()
+	end)
+
+	it("editing keys in the read-only preview are swallowed, so E21 never shows", function()
+		local s = open()
+		vim.api.nvim_set_current_win(s.view.preview.win)
+		for _, key in ipairs({ "d", "c", "x", "i", "a", "o", "p", "J", "u", "." }) do
+			local map = vim.fn.maparg(key, "n", false, true)
+			eq(s.view.preview.buf, map.buffer and vim.api.nvim_get_current_buf(), key)
+		end
+		s:close()
+	end)
+
 	it("the first row is selected again after each query change", function()
 		local s = open()
 		press(s, "input", "<C-n>")
