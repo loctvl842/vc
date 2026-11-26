@@ -1,4 +1,4 @@
-<!-- Generated: 2026-11-26 | Files scanned: 52 | Token estimate: ~742 -->
+<!-- Generated: 2026-11-27 | Files scanned: 66 | Token estimate: ~880 -->
 
 # Modules
 
@@ -20,6 +20,21 @@
 **Path:** `lua/vc/theme.lua`
 - `refresh(on_done?)` queries OSC 10/11/4 (200 ms timeout), `palette` (nil if unanswered), `activate()`, `parse(seq)`, `mix(a, b, t)`, `hex(rgb)`
 - Re-run from `finder.highlights` on `OptionSet background` and `FocusGained`
+
+## notify
+**Path:** `lua/vc/notify/`, `lua/vc/animate.lua`
+- `setup(opts?)` replaces `vim.notify` (fast events are scheduled), `notify(message, level?, {title?, icon?, timeout?}) -> record`, `dismiss()`
+- Cards: up to 80 columns (`config.width()` = min(80, columns - 2)), text wrapped with `vc.finder.wrap`, 10 rows max, `zindex` 200, fade in, slide out after `timeout` (3 s)
+- Oldest cards slide out early when the stack would pass the bottom; a leaving card takes no room
+- `animate.tween(ms, on_frame, on_done)`, `animate.run(win, from, to, ms, on_done, opts)`
+- Deps: `vc.finder.view`, `vc.finder.wrap`, `vc.theme`; groups `VCNotify{Normal,Border,ERROR,WARN,INFO,DEBUG,TRACE}`
+
+## messages
+**Path:** `lua/vc/messages/`
+- `setup(opts?)` enables `vim._core.ui2` (nvim 0.12) and wraps `ui2.messages.msg_show`; any error falls back to ui2's own output
+- `router.resolve(routes, kind, text, passthrough) -> {drop} | {text, level, id?, cancels?} | nil`, `router.flatten(content)`
+- Levels: `emsg echoerr lua_error rpc_error` ERROR, `wmsg` WARN, the rest INFO; `search_count` and empty text dropped; `confirm confirm_sub return_prompt number_prompt` stay with ui2
+- Deps: `vc.notify`
 
 ## transcript
 **Path:** `lua/vc/transcript.lua`, `markdown.lua`, `code.lua`, `toolline.lua`
