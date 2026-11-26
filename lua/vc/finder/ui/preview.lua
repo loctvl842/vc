@@ -57,6 +57,10 @@ function M.create(geo)
 	)
 	View.wo(win, "wrap", true)
 	View.wo(win, "linebreak", true)
+	-- A wrapped line hangs under its text: past the marker (dot, bullet, number, quote bar, result bar).
+	View.wo(win, "breakindent", true)
+	View.wo(win, "breakindentopt", "list:-1")
+	vim.bo[buf].formatlistpat = [[^\s*\%([●•▎⎿>]\|\d\+[.)]\)\s\+]]
 	View.wo(win, "number", false)
 	View.wo(win, "foldmethod", "expr")
 	View.wo(win, "foldexpr", "v:lua.require'vc.finder.ui.preview'.foldexpr()")

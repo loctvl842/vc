@@ -3,6 +3,7 @@
 -- blocks are then rendered the way Claude Code draws a session: "> " prompts, "● " replies, one-line tool
 -- calls with their result underneath, thinking folded away.
 local config = require("vc.finder.config")
+local markdown = require("vc.markdown")
 local toolline = require("vc.toolline")
 
 local M = {}
@@ -83,17 +84,19 @@ end
 function Out:message(marker, lines, marks, opts)
 	local first = #self.lines + 1
 	local indent = string.rep(" ", vim.fn.strdisplaywidth(marker))
+	local shift = {}
 	for i, text in ipairs(lines) do
-		local l = self:add(text == "" and "" or ((i == 1 and marker or indent) .. text))
+		local prefix = i == 1 and marker or indent
+		shift[i] = #prefix
+		local l = self:add(text == "" and "" or (prefix .. text))
 		if opts and opts.line_hl then
 			self:whole(l, opts.line_hl)
 		end
 	end
-	local shift = #marker
 	for _, m in ipairs(marks or {}) do
 		local out = { l = first + m.l - 1, hl = m.hl, line = m.line }
 		if m.c then
-			out.c, out.e = m.c + shift, m.e + shift
+			out.c, out.e = m.c + shift[m.l], m.e + shift[m.l]
 		end
 		self.marks[#self.marks + 1] = out
 	end
@@ -210,12 +213,11 @@ function Builder:render_block(b)
 	local out = self.out
 	out:gap()
 	if b.kind == "prompt" or b.kind == "reply" then
-		local lines = toolline.split(b.text)
 		if b.kind == "prompt" then
-			local first = out:message(PROMPT, lines, nil, { line_hl = "Band" })
+			local first = out:message(PROMPT, toolline.split(b.text), nil, { line_hl = "Band" })
 			out:mark(first, 0, #PROMPT - 1, "Prompt")
 		else
-			local first = out:message(REPLY, lines)
+			local first = out:message(REPLY, markdown.render(b.text))
 			out:mark(first, 0, #REPLY - 1, "Dot")
 		end
 	elseif b.kind == "thinking" then
