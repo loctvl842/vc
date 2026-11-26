@@ -1,4 +1,4 @@
-<!-- Generated: 2026-11-26 | Files scanned: 28 | Token estimate: ~672 -->
+<!-- Generated: 2026-11-26 | Files scanned: 50 | Token estimate: ~929 -->
 
 # Architecture
 
@@ -11,7 +11,10 @@ init.lua                      entry (VimEnter -> vc.start)
 lua/vc/
   init.lua                    two-screen state machine: finder <-> claude
   claude.lua                  Claude Code in a full-window terminal buffer
-  transcript.lua              .jsonl -> markdown lines + fold map (whole conversation)
+  transcript.lua              .jsonl -> blocks -> VC.Doc (lines, marks, folds), Claude Code layout, chunked
+  markdown.lua                reply text -> clean lines + marks (tree-sitter markdown, tables, code fences)
+  code.lua                    fence language -> syntax marks from tree-sitter highlight queries
+  toolline.lua                tool call line, result lines, diff from structuredPatch
   debounce.lua                trailing-edge debounce (uv timer)
   theme.lua                   asks the terminal for its colors (OSC 10/11/4), blend helpers
   sessions/
@@ -28,9 +31,10 @@ lua/vc/
     pipeline/match.lua        load items once, rescore per keystroke
     matcher.lua score.lua topk.lua async.lua   fuzzy engine (copied from BeastVim)
     view.lua                  Instance base + buf/win helpers
-    ui/{input,list,preview}.lua   prompt, 2-row virtual list, folding preview
+    ui/{input,list,preview}.lua   prompt, 2-row virtual list, styled preview (marks -> extmarks, folds)
 test/                         headless specs (make test), harness in test/harness.lua
 scripts/bench-index.lua       cold/warm index timing on synthetic store
+scripts/bench-preview.lua     preview render time, first screen and longest step on a synthetic session
 ```
 
 ## Setup Flow
@@ -45,6 +49,7 @@ scripts/bench-index.lua       cold/warm index timing on synthetic store
 - Folder gone: prints a notice, runs from Neovim's cwd. New session: `cd <cwd> && exec claude`.
 
 ## Reload / Lifecycle Contracts
-- Preview cache is keyed `id:size:mtime` (a resumed session is reread).
+- Preview cache is keyed `id:size:mtime` (a resumed session is reread) and holds the whole doc (lines, folds, marks).
+- Marks are `{l, c, e, hl}` with `hl` = group name after `VCFinderPreview`; the doc is built once, theme flips only redefine groups.
 - `finder.highlights` autocmd (`OptionSet background`) only redefines highlight groups, never buffers or windows.
 - `finder.autocmds.restore_cursor` runs on every close (guicursor is hidden while the list is focused).

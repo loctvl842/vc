@@ -1,4 +1,4 @@
-<!-- Generated: 2026-11-26 | Files scanned: 28 | Token estimate: ~300 -->
+<!-- Generated: 2026-11-26 | Files scanned: 50 | Token estimate: ~155 -->
 
 # VimClaude Codemaps
 
@@ -11,7 +11,7 @@ Quick-reference architecture documentation. Regenerate with `/update-codemap`.
 ## Project Stats
 - Language: Lua
 - Platform: Neovim config for working with Claude Code
-- Lines of code: ~3190
-- Modules: vc (state machine), sessions, transcript, finder
+- Lines of code: ~4350
+- Modules: vc (state machine), sessions, transcript (markdown, code, toolline), finder
 - Shared modules: vc.debounce, vc.finder.view
 - Last updated: 2026-11-26

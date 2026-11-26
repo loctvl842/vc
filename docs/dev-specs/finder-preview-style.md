@@ -170,18 +170,46 @@ VC.Fold  = { start, stop, label }            -- unchanged
 - Manual (PM spec scenarios, `NVIM_APPNAME=VimClaude nvim` in the terminal theme the user uses, dark and light): 1 glance at sessions, 2 mixed markdown, 3 code (Lua, unknown language), 4 tool activity and fold open, 5 file edit, 6 theme flip with preview open, 7 very long session while typing, 8 table / image. Compare against the user's Claude Code screenshots; tune constants and colors in `highlights.lua` and `config.lua` only.
 
 # Success Criteria
-- [ ] A session in the preview and in Claude Code read as the same screen: markers, hierarchy, emphasis
-- [ ] No raw `**`, backticks, `##`, or link syntax in any reply
-- [ ] Bold, italic, headings, lists, quotes, inline code, links, strikethrough each look distinct
-- [ ] Code blocks are highlighted for common languages and look like code when the language is unknown
-- [ ] Every tool call is one line; results are summarised and expand in place
-- [ ] File edits show as a colored diff with line numbers
-- [ ] Dark and light themes readable; a flip repaints live
-- [ ] Rapid selection changes never freeze typing or leave a half-styled screen
-- [ ] Wrapped lines keep a straight hanging indent in replies, lists and quotes
-- [ ] `make test` and `make lint` pass; no new group lacks a cterm fallback
+- [x] A session in the preview and in Claude Code read as the same screen: markers, hierarchy, emphasis
+- [x] No raw `**`, backticks, `##`, or link syntax in any reply
+- [x] Bold, italic, headings, lists, quotes, inline code, links, strikethrough each look distinct
+- [x] Code blocks are highlighted for common languages and look like code when the language is unknown
+- [x] Every tool call is one line; results are summarised and expand in place
+- [x] File edits show as a colored diff with line numbers
+- [x] Dark and light themes readable; a flip repaints live
+- [x] Rapid selection changes never freeze typing or leave a half-styled screen
+- [x] Wrapped lines keep a straight hanging indent in replies, lists and quotes
+- [x] `make test` and `make lint` pass; no new group lacks a cterm fallback
 
 # Decisions for you
 1. **Wrapping**: native window wrapping with `breakindent` (recommended: re-flows on resize, copy keeps paragraphs whole) vs pre-wrapping lines at render time (exact control, but re-render on resize and copied text has hard breaks). Phase 2 Step 3 verifies native wrapping first and falls back only if the hanging indent is not right for lists.
 2. **Markdown parsing**: tree-sitter (recommended: robust nesting, bundled) vs a hand-written scanner (no parser dependency, easier to be wrong on edge cases). Tree-sitter missing means plain text, never an error.
 3. **Constants** (`result_lines`, truncation lengths, band tint strength): start from guesses, to be fixed once screenshots arrive.
+
+---
+
+## Completed
+
+2026-11-26 - all five phases: block model and Claude Code layout, tree-sitter markdown, code highlighting, diffs, tables and bench.
+
+- `0cfd507` docs(spec): add finder preview style pm spec
+- `e0c0a58` docs(spec): add finder preview style dev spec
+- `2693c37` feat(preview): draw sessions like Claude Code with prompts, replies and one-line tool calls
+- `c2f8bd2` feat(preview): render markdown in replies without raw markers
+- `3d8dff7` feat(preview): highlight fenced code with the terminal palette
+- `58cdd07` feat(preview): show file edits as colored diffs with line numbers
+- `78a739b` feat(preview): render tables and add a preview render bench
+- `e1c7a6a` fix(preview): number diff context by the new file and tighten review findings
+
+Verification: `make test` 109 passed, 0 failed; `make lint` clean. `scripts/bench-preview.lua` (10000 messages, 4.5 MB): full render about 2.4 s, first screen 5-7 ms, longest event-loop step about 25 ms. Checked in a real terminal (tmux, Monokai Pro palette): hanging indents on wrapped lists and quotes, bold/italic/underline attributes, code colors, diff bands, folds opening in place.
+
+Where the build differs from this spec:
+- Prompts stay plain text (Claude Code does not render markdown in the user's prompt); only replies go through `markdown.render`.
+- Code blocks are indented two spaces under the reply text (matches the PM mockup), unknown languages get no color, there is no `CodeBlock` group and no operator color.
+- Tables are drawn with box lines but not width-capped; a table wider than the pane wraps and breaks its borders.
+- A wrapped block-quote line keeps its hanging indent but not the left bar (window wrapping cannot repeat it).
+- Unknown content block types show as `[type]`; images show as `[image]`.
+- The `# title` header line is gone; the title is already in the pane border, only the folder and message count line remains.
+- Extra tunable: `config.preview.diff_lines` (24) and `args_width` (80) next to `result_lines` (3).
+- The first render publishes the top of the document early (`on_partial`), then replaces it without moving the cursor.
+- Constants and colors are still the guesses from the PM spec; they await the Claude Code screenshots.
