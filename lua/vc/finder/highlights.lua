@@ -31,13 +31,24 @@ local function selection()
 	return { ctermbg = vim.o.background == "light" and 7 or 0 }
 end
 
+--- Not `default`: it has to be redefined when the background changes.
+local function apply_selection()
+	vim.api.nvim_set_hl(0, "VCFinderListCursorLine", selection())
+end
+
 function M.setup()
 	for name, spec in pairs(static) do
 		vim.api.nvim_set_hl(0, "VCFinder" .. name, vim.tbl_extend("force", spec, { default = true }))
 	end
-	-- Not `default`: it has to be redefined when the background changes.
-	vim.api.nvim_set_hl(0, "VCFinderListCursorLine", selection())
+	apply_selection()
 	vim.api.nvim_set_hl(0, "VCFinderListCursor", { blend = 100, nocombine = true, default = true })
+	-- Neovim updates 'background' when the terminal flips light/dark; only highlights change, so the
+	-- query, selection and scroll of an open finder stay as they are.
+	vim.api.nvim_create_autocmd("OptionSet", {
+		group = vim.api.nvim_create_augroup("VCFinderHighlights", { clear = true }),
+		pattern = "background",
+		callback = apply_selection,
+	})
 end
 
 return M
