@@ -1,4 +1,4 @@
-<!-- Generated: 2026-11-27 | Files scanned: 75 | Token estimate: ~1200 -->
+<!-- Generated: 2026-11-27 | Files scanned: 76 | Token estimate: ~1440 -->
 
 # Architecture
 
@@ -41,11 +41,12 @@ lua/vc/
     render.lua                matched -> list, footer, debounced preview
     keymaps.lua autocmds.lua  keys per pane; cursor hiding, resize, focus guard
     layout.lua highlights.lua config.lua   full-screen geometry, terminal-palette groups
-    query.lua filter.lua host.lua          state holders, pipeline-to-UI contract
+    query.lua filter.lua host.lua          state holders (filter: typed text, field terms, remainder), pipeline-to-UI contract
+    fieldquery.lua            pure: typed text -> field:value terms + rest + prefix spans (cwd title branch pr recap msg)
     pipeline/match.lua        load items once, rescore per keystroke
     matcher.lua score.lua topk.lua async.lua   fuzzy engine (copied from BeastVim)
     view.lua                  Instance base + buf/win helpers
-    ui/{input,list,preview}.lua   prompt, virtual list (items of many rows, open when selected), styled preview (marks -> extmarks, folds)
+    ui/{input,list,preview}.lua   prompt (colours field: prefixes), virtual list (items of many rows, open when selected), styled preview (marks -> extmarks, folds)
 test/                         headless specs (make test), harness in test/harness.lua
 scripts/bench-index.lua       cold/warm index timing on synthetic store
 scripts/bench-preview.lua     preview render time, first screen and longest step on a synthetic session

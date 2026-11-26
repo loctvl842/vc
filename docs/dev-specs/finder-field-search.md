@@ -150,17 +150,38 @@ Mergeable on its own: works without prompt colours or branch/PR.
 - Manual: open `NVIM_APPNAME=VimClaude nvim` and walk the PM spec scenarios: 1 (narrow by folder then title), 2 (term order), 3 (same word with and without a field), 4 (same field twice), 5 (no match: counter `0 / N`, message `No sessions match "..."`), 6 (type `cwd:` letter by letter and watch the prefix colour and the list), 7 (`ticket:42`, a URL), 8 (quoted phrase), 9 (`title:nvm` vs `msg:nvm`), 10 (capital letter). Check the prefix colour in a light and a dark terminal, and highlights inside folder, recap, message, branch and PR on a narrow list (34 columns).
 
 # Success Criteria
-- [ ] `cwd:jarvix` shows only sessions whose folder matches jarvix, not ones that merely mention it
-- [ ] `cwd:jarvix title:nvim` shows the sessions that satisfy both
-- [ ] `cwd:jarvix startup` narrows by folder, then searches "startup" as today, best match first
-- [ ] Term order in the box makes no difference to which sessions are shown
-- [ ] A recognised `field:` prefix has its own colour; an unknown prefix does not
-- [ ] `cwd:` with no value leaves the list unchanged
-- [ ] `ticket:42` and URLs are searched as plain text
-- [ ] `title:"fix login"` requires both words together in the title
-- [ ] `title` and `cwd` match loosely; `recap`, `msg` and `branch` match as written; `pr:8` does not match #80
-- [ ] Matches are highlighted inside the field they matched
-- [ ] A query with no field term gives the same list and order as before
-- [ ] The counter and the empty state reflect the narrowed list
-- [ ] Technical: no remaining reader of `filter.pattern` that means "typed text" (`grep -rn "filter.pattern" lua/`)
-- [ ] Technical: `make test` and `make lint` pass; typing `cwd`, `cwd:`, `cwd:j` never leaves the list stale
+- [x] `cwd:jarvix` shows only sessions whose folder matches jarvix, not ones that merely mention it
+- [x] `cwd:jarvix title:nvim` shows the sessions that satisfy both
+- [x] `cwd:jarvix startup` narrows by folder, then searches "startup" as today, best match first
+- [x] Term order in the box makes no difference to which sessions are shown
+- [x] A recognised `field:` prefix has its own colour; an unknown prefix does not
+- [x] `cwd:` with no value leaves the list unchanged
+- [x] `ticket:42` and URLs are searched as plain text
+- [x] `title:"fix login"` requires both words together in the title
+- [x] `title` and `cwd` match loosely; `recap`, `msg` and `branch` match as written; `pr:8` does not match #80
+- [x] Matches are highlighted inside the field they matched
+- [x] A query with no field term gives the same list and order as before
+- [x] The counter and the empty state reflect the narrowed list
+- [x] Technical: no remaining reader of `filter.pattern` that means "typed text" (`grep -rn "filter.pattern" lua/`)
+- [x] Technical: `make test` and `make lint` pass; typing `cwd`, `cwd:`, `cwd:j` never leaves the list stale
+
+---
+
+## Completed
+
+2026-11-27 - Phase 1: `cwd:`, `title:`, `recap:`, `msg:` narrow the list before the rest of the query is scored. Phase 2: recognised `field:` prefixes are coloured in the prompt. Phase 3: `branch:` and `pr:` with highlights on the folder row.
+
+- `702ddf9` docs: add finder-field-search pm and dev spec
+- `55b388b` feat(finder): parse field:value terms out of the query
+- `a92d6ca` feat(finder): keep the typed text, field terms and remainder in the filter
+- `108cc41` refactor(finder): read the typed text from filter.text
+- `427472f` feat(finder): name the searchable fields of an item
+- `d17b58c` feat(finder): narrow items by field terms before scoring the rest of the query
+- `9980cbb` test(finder): cover field terms in the query
+- `9db297d` feat(finder): add the VCFinderField highlight group
+- `6dfeee2` feat(finder): colour recognised field prefixes in the prompt
+- `a28b061` feat(finder): search and highlight the branch and PR with branch: and pr:
+- `7a61a6e` test(finder): cover branch: and pr: terms and their highlights
+
+Verified: `make test` 241 passed, 0 failed; `make lint` clean. Mutation checks (subset guard, column offsets, the `only` skip, `^N$` anchoring, `branch_kept`) each fail a test. Run in a real finder over 113 sessions: `cwd:Vim` 58, plus `title:fold` 3, `branch:main msg:commit` 21, `pr:5` 1, no match shows `No sessions match "..."` with `0 / 113`; prefixes render bold cyan.
+Not covered by a test: the counter and empty message for field queries (checked by hand). A `branch:` or `pr:` value goes through the same parser as a normal word, so `branch:a|b` acts as OR; `pr:` is exact digits only.

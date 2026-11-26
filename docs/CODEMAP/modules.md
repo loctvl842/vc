@@ -1,4 +1,4 @@
-<!-- Generated: 2026-11-27 | Files scanned: 75 | Token estimate: ~1000 -->
+<!-- Generated: 2026-11-27 | Files scanned: 76 | Token estimate: ~1390 -->
 
 # Modules
 
@@ -56,8 +56,11 @@
 **Path:** `lua/vc/finder/`
 - `open({cwd?, on_confirm(item), on_exit()}) -> Session`, `close()`, `current()`
 - Session: `set_rows(rows)`, `busy(on)`, `close()`, `relayout()`
-- `source.items(rows, with_new)`: search text = title, folder (fuzzy) then recap, last message (substring only, `fuzzy_len`)
+- `source.items(rows, with_new)`: search text = title, folder (fuzzy) then recap, last message (substring only, `fuzzy_len`); spans carry a `name` (title cwd recap msg); branch and PR follow as `only` spans that `branch:`/`pr:` search and ordinary words never do
 - `source.format(item, width, {selected?, max_rows?}) -> lines, ranges`: title, folder row (+branch, PR), wrapped recap and last message (3 lines unless selected, runs on to a match), blank row
+- `fieldquery.parse(text) -> {terms = {name, value, quoted}[], rest, prefixes = {s, e}[]}`: `field:value` words (lowercase names, `"quoted phrase"`); other words, `ticket:42` and URLs, stay in `rest`
+- `filter:update(text)` sets `text` (typed), `terms`, `pattern` (= rest); matcher: every field term must match its span (`pr` exactly, quoted = one exact phrase), then `pattern` scores as before; no subset speed-up when a run has terms
+- `ui.input.mark_fields(view)` colours recognised prefixes (`VCFinderField`) on every text change
 - `wrap.lines(text, width) -> {s, e}[]` byte spans; `source.location(row)`, `source.relative_time`
 - `ui.input`, `ui.list` (items span several rows; height depends on the cursor), `ui.preview` (`show(row)`, `note`, marks as extmarks, foldexpr/foldtext, hanging indent via breakindent)
 - Deps: `vc.transcript`, `vc.debounce`; `VCFinder*` groups use the terminal palette (cterm 0-15, `NONE` bg); `highlights.setup()` re-tints the selected row on `OptionSet background`
