@@ -1,6 +1,6 @@
 -- Turns a Claude Code transcript (.jsonl) into a styled document for the preview: display lines, highlight
 -- marks and folds. Records become typed blocks first (a tool result is paired with its call by id), and
--- blocks are then rendered the way Claude Code draws a session: "> " prompts, "● " replies, one-line tool
+-- blocks are then rendered the way Claude Code draws a session: "❯ " prompts, "● " replies, one-line tool
 -- calls with their result underneath, thinking folded away.
 local config = require("vc.finder.config")
 local markdown = require("vc.markdown")
@@ -25,7 +25,7 @@ local RENDER_CHUNK = 20 -- blocks rendered per event-loop turn
 local PARTIAL_LINES = 80 -- lines rendered before the first screen is published
 local RESOLVE_WINDOW = 64 -- a call this far back that never got a result is rendered without one
 
-local PROMPT = "> "
+local PROMPT = "❯ "
 local REPLY = "● "
 local RESULT_FIRST = "  ⎿  "
 local RESULT_REST = "     "

@@ -61,7 +61,7 @@ function M.create(geo)
 	-- in a diff, past the line number and its +/- sign.
 	View.wo(win, "breakindent", true)
 	View.wo(win, "breakindentopt", "list:-1")
-	vim.bo[buf].formatlistpat = [[^\s*\%(\%([●•▎⎿>]\|\d\+[.)]\)\s\+\|\d\+\s[-+ ]\)]]
+	vim.bo[buf].formatlistpat = [[^\s*\%(\%([●•▎⎿❯]\|\d\+[.)]\)\s\+\|\d\+\s[-+ ]\)]]
 	View.wo(win, "number", false)
 	View.wo(win, "foldmethod", "expr")
 	View.wo(win, "foldexpr", "v:lua.require'vc.finder.ui.preview'.foldexpr()")

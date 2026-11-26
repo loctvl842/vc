@@ -12,7 +12,7 @@ describe("transcript", function()
 			F.assistant({ { type = "text", text = "checking\nnow" } }, "t"),
 		}, "\n")
 		local lines, folds, marks = T.render(src)
-		eq({ "> why is CI red?", "", "● checking", "  now" }, lines)
+		eq({ "❯ why is CI red?", "", "● checking", "  now" }, lines)
 		eq({}, folds)
 		local function has(l, hl, whole)
 			for _, m in ipairs(marks) do
@@ -35,7 +35,7 @@ describe("transcript", function()
 			F.assistant({ { type = "text", text = "done" } }, "t"),
 		}, "\n")
 		local lines, folds = T.render(src)
-		eq({ "> go", "", "● Bash(npm test)", "  ⎿  12 passed", "", "● done" }, lines)
+		eq({ "❯ go", "", "● Bash(npm test)", "  ⎿  12 passed", "", "● done" }, lines)
 		eq({}, folds)
 	end)
 
@@ -193,7 +193,7 @@ describe("transcript", function()
 			F.user("<local-command-stderr>nope</local-command-stderr>", "t"),
 		}, "\n")
 		local lines, _, marks = T.render(src)
-		eq({ "> /clear", "", "> /pm-spec a feature", "", "  ⎿  Compacted", "", "  ⎿  nope" }, lines)
+		eq({ "❯ /clear", "", "❯ /pm-spec a feature", "", "  ⎿  Compacted", "", "  ⎿  nope" }, lines)
 		local errors = {}
 		for _, m in ipairs(marks) do
 			if m.hl == "Error" then
@@ -227,7 +227,7 @@ describe("transcript", function()
 			F.user("side", "t", nil, { isSidechain = true }),
 			F.user("real", "t"),
 		}, "\n")
-		eq({ "> real" }, (T.render(src)))
+		eq({ "❯ real" }, (T.render(src)))
 	end)
 
 	it("handles array text content and images", function()
@@ -283,7 +283,7 @@ describe("transcript", function()
 			return got ~= nil
 		end)
 		eq("/x - 1500 messages", got[1][1])
-		eq("> q1500", got[1][#got[1]])
+		eq("❯ q1500", got[1][#got[1]])
 	end)
 
 	it("does not fold empty thinking blocks", function()

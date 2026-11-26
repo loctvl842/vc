@@ -485,7 +485,7 @@ describe("finder", function()
 		ui.preview.show(s.view.preview, r)
 		local buf = s.view.preview.buf
 		wait(function()
-			return vim.tbl_contains(vim.api.nvim_buf_get_lines(buf, 0, -1, false), "> hello")
+			return vim.tbl_contains(vim.api.nvim_buf_get_lines(buf, 0, -1, false), "❯ hello")
 		end)
 		local marks = vim.api.nvim_buf_get_extmarks(buf, s.view.preview.ns, 0, -1, { details = true })
 		local groups = {}
