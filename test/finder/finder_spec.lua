@@ -490,6 +490,22 @@ describe("finder", function()
 		eq(before, vim.o.guicursor)
 	end)
 
+	it("closes every pane and exits when one is closed with :q", function()
+		local s, ev = open()
+		local wins = { s.view.input.win, s.view.list.win, s.view.preview.win }
+		vim.api.nvim_set_current_win(s.view.preview.win)
+		vim.cmd("q")
+		wait(function()
+			return s.closed
+		end)
+		for _, w in ipairs(wins) do
+			eq(false, vim.api.nvim_win_is_valid(w))
+		end
+		wait(function()
+			return ev.exited
+		end)
+	end)
+
 	it("Enter acts on the typed query even before the debounce fires", function()
 		local s, ev = open()
 		local buf = s.view.input.buf
