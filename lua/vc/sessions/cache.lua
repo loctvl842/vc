@@ -1,7 +1,7 @@
 -- Persistent index of session rows so reopening does not rescan the store.
 local M = {}
 
-local VERSION = 1
+local VERSION = 3
 
 ---@return string
 function M.default_path()

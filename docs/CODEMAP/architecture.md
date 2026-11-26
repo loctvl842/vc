@@ -1,4 +1,4 @@
-<!-- Generated: 2026-11-26 | Files scanned: 50 | Token estimate: ~929 -->
+<!-- Generated: 2026-11-26 | Files scanned: 52 | Token estimate: ~979 -->
 
 # Architecture
 
@@ -18,12 +18,13 @@ lua/vc/
   debounce.lua                trailing-edge debounce (uv timer)
   theme.lua                   asks the terminal for its colors (OSC 10/11/4), blend helpers
   sessions/
-    scan.lua                  one .jsonl -> row (title, project, cwd, last_ts, msg_count)
+    scan.lua                  one .jsonl -> row (title, cwd, recap, last message, branch, PR, last_ts, msg_count)
     cache.lua                 versioned index file under stdpath("cache")/vc
     index.lua                 walk ~/.claude/projects, reuse cache, rescan changed, cancellable
   finder/                     trimmed copy of the BeastVim finder, one source
     init.lua                  Session: open/close/set_rows/busy/relayout
-    source.lua                items + row format ("New session" only on empty query)
+    source.lua                items + item format: title, folder row, wrapped recap/last message ("New session" only on empty query)
+    wrap.lua                  word wrap to byte spans (search matches map back onto rows)
     render.lua                matched -> list, footer, debounced preview
     keymaps.lua autocmds.lua  keys per pane; cursor hiding, resize, focus guard
     layout.lua highlights.lua config.lua   full-screen geometry, terminal-palette groups
@@ -31,7 +32,7 @@ lua/vc/
     pipeline/match.lua        load items once, rescore per keystroke
     matcher.lua score.lua topk.lua async.lua   fuzzy engine (copied from BeastVim)
     view.lua                  Instance base + buf/win helpers
-    ui/{input,list,preview}.lua   prompt, 2-row virtual list, styled preview (marks -> extmarks, folds)
+    ui/{input,list,preview}.lua   prompt, virtual list (items of many rows, open when selected), styled preview (marks -> extmarks, folds)
 test/                         headless specs (make test), harness in test/harness.lua
 scripts/bench-index.lua       cold/warm index timing on synthetic store
 scripts/bench-preview.lua     preview render time, first screen and longest step on a synthetic session

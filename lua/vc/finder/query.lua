@@ -2,6 +2,7 @@
 ---@field idx integer
 ---@field score number
 ---@field text string what the query matches against
+---@field fuzzy_len? integer only this many leading bytes of `text` match fuzzily; the rest (a recap) matches as a substring
 ---@field positions? integer[] matched byte positions in `text`
 ---@field row? VC.Row the session this item stands for
 ---@field new? boolean the "New session" item

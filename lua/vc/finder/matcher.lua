@@ -157,9 +157,10 @@ end
 ---@param prefix boolean
 ---@param suffix boolean
 ---@param exact boolean
+---@param fuzzy_len? integer only the first `fuzzy_len` bytes match fuzzily; the rest matches as a plain substring
 ---@return number score
 ---@return integer[]? positions
-local function score_term(hay, hay_orig, needle, prefix, suffix, exact)
+local function score_term(hay, hay_orig, needle, prefix, suffix, exact, fuzzy_len)
 	local hlen = #hay
 	local nlen = #needle
 
@@ -182,6 +183,22 @@ local function score_term(hay, hay_orig, needle, prefix, suffix, exact)
 			pos[#pos + 1] = i
 		end
 		return s, pos
+	end
+
+	-- Text past `fuzzy_len` (a recap) is long prose, where scattered letters match nearly any query.
+	if fuzzy_len and fuzzy_len < hlen then
+		local s, pos = score_term(hay:sub(1, fuzzy_len), hay_orig:sub(1, fuzzy_len), needle, false, false, false)
+		if s > 0 then
+			return s, pos
+		end
+		local idx = hay:find(needle, fuzzy_len + 1, true)
+		-- stylua: ignore
+		if not idx then return 0, nil end
+		pos = {}
+		for i = idx, idx + nlen - 1 do
+			pos[#pos + 1] = i
+		end
+		return math.max(scorer:get(hay_orig, idx, idx + nlen - 1), 1), pos
 	end
 
 	-- Fuzzy: multi-start scan — try every valid start position, keep best
@@ -252,7 +269,7 @@ local function score_item(item, and_groups)
 		local any_match = false
 		for _, term in ipairs(or_terms) do
 			local hay = term.ignorecase and hay_lower or hay_orig
-			local s, pos = score_term(hay, hay_orig, term.text, term.prefix, term.suffix, term.exact)
+			local s, pos = score_term(hay, hay_orig, term.text, term.prefix, term.suffix, term.exact, item.fuzzy_len)
 			if term.inverse then
 				if s == 0 then
 					best = math.max(best, 1)
