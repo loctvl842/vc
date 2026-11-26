@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec: finder list item</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --mock:#f1efe9; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; --mock:#11100f; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:36px 0; }
+  h1 { font-size:28px; margin:0 0 6px; } h2 { font-size:20px; margin:0 0 10px; } h3 { font-size:16px; margin:18px 0 6px; }
+  .sub { color:var(--muted); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:12px 0; }
+  pre.mock { background:var(--mock); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; font:13px/1.35 ui-monospace, Menlo, monospace; margin:8px 0; }
+  .label { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--accent); font-weight:600; }
+  ul { padding-left:20px; } li { margin:4px 0; }
+  .rec { border-left:3px solid var(--accent); }
+  details summary { cursor:pointer; font-weight:600; }
+  code { background:var(--mock); padding:1px 5px; border-radius:4px; }
+  input[type=checkbox] { margin-right:8px; }
+</style>
+</head>
+<body>
+<main>
+<header data-spec="summary">
+  <h1>Finder list item</h1>
+  <p class="sub">Show where each session left off, so the right one can be picked at a glance.</p>
+  <p>Each session shows its title, the <b>full folder</b>, the <b>recap</b> when Claude Code wrote one, and your <b>last message</b> - all in full, wrapped over as many lines as needed, and all searchable. Only the list changes; the preview is as it is today.</p>
+</header>
+
+<section data-spec="problem">
+  <h2>Problem</h2>
+  <p>A list item is a title plus the last folder name. Two sessions on the same topic look identical, and two <code>api-server</code> folders cannot be told apart. The thing that answers "where did I leave off?" - your last message or the recap - is not shown and cannot be searched, so each guess costs a preview and a trip back.</p>
+</section>
+
+<section data-spec="target-behavior">
+  <h2>Target behavior</h2>
+  <div data-spec="state-1" class="card"><div class="label">State 1 - opened, first session selected</div><pre class="mock">┌ Claude Sessions ─────────────────────────────────┐
+│ &gt; _                                       3 / 12 │
+├──────────────────────────────────────────────────┤
+│▌ Fix flaky login test                            │
+│    ~/work/api-server · main · #8   2m ago  34 msg│
+│    Recap › You were fixing the flaky login test. │
+│            The cause is a fixed 200ms wait before│
+│            the assertion. Next step: replace it  │
+│            with a poll and push the branch.      │
+│    You   › ok replace the wait with polling, and │
+│            then push the branch                  │
+│                                                  │
+│  Draft Q4 roadmap outline                        │
+│    ~/notes                         1h ago  12 msg│
+│    You   › turn the outline into three bullets   │
+│            per quarter, keep it under a page, and│
+│            then send it to Dana so she can revie…│
+│                                                  │
+│  Old prototype                                   │
+│    ~/old/proto (folder gone)       3mo ago  7 msg│
+│    You   › does this still build?                │
+└──────────────────────────────────────────────────┘</pre>
+    <p class="sub">Per session: title / folder, branch, PR, age, messages / Recap (if any) / You (last message). The selected one is open in full; others show up to 3 lines per message.</p></div>
+  <div data-spec="state-2" class="card"><div class="label">State 2 - selection moves down: long message opens, first one folds</div><pre class="mock">┌ Claude Sessions ─────────────────────────────────┐
+│ &gt; _                                       3 / 12 │
+├──────────────────────────────────────────────────┤
+│  Fix flaky login test                            │
+│    ~/work/api-server · main · #8   2m ago  34 msg│
+│    Recap › You were fixing the flaky login test. │
+│            The cause is a fixed 200ms wait before│
+│            the assertion. Next step: replace it… │
+│    You   › ok replace the wait with polling, and │
+│            then push the branch                  │
+│                                                  │
+│▌ Draft Q4 roadmap outline                        │
+│    ~/notes                         1h ago  12 msg│
+│    You   › turn the outline into three bullets   │
+│            per quarter, keep it under a page, and│
+│            then send it to Dana so she can review│
+│            it before Friday&#x27;s planning sync      │
+│                                                  │
+│  Old prototype                                   │
+│    ~/old/proto (folder gone)       3mo ago  7 msg│
+│    You   › does this still build?                │
+└──────────────────────────────────────────────────┘</pre></div>
+  <div data-spec="state-3" class="card"><div class="label">State 3 - query "dana": found by what you wrote (^ marks the match)</div><pre class="mock">┌ Claude Sessions ─────────────────────────────────┐
+│ &gt; dana_                                   1 / 12 │
+├──────────────────────────────────────────────────┤
+│▌ Draft Q4 roadmap outline                        │
+│    ~/notes                         1h ago  12 msg│
+│    You   › turn the outline into three bullets   │
+│            per quarter, keep it under a page, and│
+│            then send it to Dana so she can review│
+│                            ^^^^                  │
+│            it before Friday&#x27;s planning sync      │
+└──────────────────────────────────────────────────┘</pre></div>
+  <div data-spec="state-4" class="card"><div class="label">State 4 - query "polling": only the last message has it</div><pre class="mock">┌ Claude Sessions ─────────────────────────────────┐
+│ &gt; polling_                                1 / 12 │
+├──────────────────────────────────────────────────┤
+│▌ Fix flaky login test                            │
+│    ~/work/api-server · main · #8   2m ago  34 msg│
+│    Recap › You were fixing the flaky login test. │
+│            The cause is a fixed 200ms wait before│
+│            the assertion. Next step: replace it  │
+│            with a poll and push the branch.      │
+│    You   › ok replace the wait with polling, and │
+│                                     ^^^^^^^      │
+│            then push the branch                  │
+└──────────────────────────────────────────────────┘</pre></div>
+  <div data-spec="state-5" class="card"><div class="label">State 5 - narrow list (34 columns)</div><pre class="mock">┌ Claude Sessions ─────────────────┐
+│ &gt; _                       1 / 12 │
+├──────────────────────────────────┤
+│▌ Fix flaky login test            │
+│    …-server · main 2m ago  34 msg│
+│    Recap › You were fixing the   │
+│            flaky login test. The │
+│            cause is a fixed 200ms│
+│            wait before the       │
+│            assertion. Next step: │
+│            replace it with a poll│
+│            and push the branch.  │
+│    You   › ok replace the wait   │
+│            with polling, and then│
+│            push the branch       │
+└──────────────────────────────────┘</pre></div>
+  <div data-spec="state-6" class="card"><div class="label">State 6 - no recap and no message of its own</div><pre class="mock">┌ Claude Sessions ─────────────────────────────────┐
+│ &gt; _                                       1 / 12 │
+├──────────────────────────────────────────────────┤
+│▌ Untitled scratch session                        │
+│    ~/scratch                        2d ago  1 msg│
+└──────────────────────────────────────────────────┘</pre></div>
+</section>
+
+<section data-spec="scenarios">
+  <h2>Scenarios</h2>
+  <details open data-spec="scenario-1" class="card"><summary>1 - Pick a session by where it left off (happy path)</summary>
+    <ol><li>Open the finder: every session shows title, full folder and last message; the first also shows its recap.</li>
+    <li>"Fix flaky login test" ends with "replace the wait with polling, and then push the branch" - that is the one.</li>
+    <li>Enter continues it in Claude Code, as today.</li></ol></details>
+  <details data-spec="scenario-2" class="card"><summary>2 - Long messages open on selection</summary>
+    <ol><li>Unselected, the long message shows 3 lines ending in "…".</li><li>Select it: it opens to full length; sessions below move down.</li><li>Move on: it folds back to 3 lines.</li></ol></details>
+  <details data-spec="scenario-3" class="card"><summary>3 - Find a session by something you said</summary>
+    <ol><li>Type "dana": only the session whose last message contains it remains; the match is highlighted, even on a wrapped line.</li>
+    <li>If the match is beyond line 3 of an unselected session, that message shows lines up to the match.</li></ol></details>
+  <details data-spec="scenario-4" class="card"><summary>4 - Recap search matches exactly, never loosely</summary>
+    <ol><li>Type "plan": recaps and messages containing "plan" together match; titles and folders also match loosely, as today.</li>
+    <li>Type "rmpl": scattered letters in a recap or message do not match.</li></ol></details>
+  <details data-spec="scenario-5" class="card"><summary>5 - A session with nothing of its own</summary>
+    <ol><li>No recap, no message the user wrote (only /clear or /resume): two rows - title, and folder with age.</li></ol></details>
+  <details data-spec="scenario-6" class="card"><summary>6 - Narrow list</summary>
+    <ol><li>Folders cut from the left ("…/jarvix-refactor-m4"), messages wrap narrower, branch/PR/age/count stay.</li></ol></details>
+  <details data-spec="scenario-7" class="card"><summary>7 - Two folders with the same name</summary>
+    <ol><li>~/work/api-server and ~/old/api-server each show the full path.</li><li>Type "old api": only the second remains.</li></ol></details>
+  <details data-spec="scenario-8" class="card"><summary>8 - The folder is gone</summary>
+    <ol><li>The folder row ends with "(folder gone)" in red, as today.</li></ol></details>
+</section>
+
+<section data-spec="behavior-rules">
+  <h2>Behavior rules</h2>
+  <ul>
+    <li><b>Row order:</b> title; folder, branch, PR, age, count; recap (if any); last message (if any). A blank row between sessions.</li>
+    <li><b>Full messages:</b> wrapped at word boundaries; long words (URLs) are broken; line breaks and repeated spaces become single spaces.</li>
+    <li><b>Fold and open:</b> unselected show at most 3 lines per message with "…"; the selected shows all. If taller than the list it is cut with "…"; the preview has everything.</li>
+    <li><b>A match is never hidden:</b> a match past line 3 of an unselected session extends that message to the match.</li>
+    <li><b>Last message:</b> the latest message you wrote. Command-only messages (/recap, /clear, /resume) and tool answers do not count. Hidden when none, or when identical to the title.</li>
+    <li><b>Recap:</b> only when Claude Code wrote one (<code>/recap</code> or automatic); the latest; no placeholder; not marked out of date.</li>
+    <li><b>Folder:</b> full path, home as <code>~</code>, cut from the left with "…" when long; "(folder gone)" stays.</li>
+    <li><b>Branch and PR:</b> last branch (hidden when unknown or detached); <code>#8</code> when linked to a pull request.</li>
+    <li><b>Search:</b> every typed word must match somewhere. Title and folder: letters spread in order, as today. Recap and last message: the word must appear contiguously as written (case-insensitive unless a capital is typed).</li>
+    <li><b>Highlight:</b> matches highlighted everywhere, including wrapped lines.</li>
+    <li><b>Unchanged:</b> "New session", the preview, key hints, ordering by last activity.</li>
+  </ul>
+</section>
+
+<section data-spec="decisions">
+  <h2>Decisions for you</h2>
+  <div class="card rec" data-spec="decision-1"><b>1. Fold the unselected, open the selected</b> <span class="sub">(recommended)</span><br>vs. every message in full for every session - about 4 sessions per screen with long messages. Cost of folding: rows below move when the selection moves.</div>
+  <div class="card rec" data-spec="decision-2"><b>2. Chips: branch and PR</b> <span class="sub">(recommended)</span><br>vs. also <code>+907 -60</code> lines changed - says whether real work happened, but the row is already full.</div>
+  <div class="card rec" data-spec="decision-3"><b>3. Recap above the last message</b> <span class="sub">(recommended)</span><br>vs. last message first. The recap is the broader answer; the message is the exact stopping point.</div>
+  <div class="card rec" data-spec="decision-4"><b>4. Recap without an age</b> <span class="sub">(recommended)</span><br>vs. "Recap · 2d ago". An old recap can mislead, but an age on every recap is noise.</div>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <div class="card">
+    <label style="display:block"><input type="checkbox">Every session shows its full folder path with the home folder as ~</label><label style="display:block"><input type="checkbox">Two folders with the same name can be told apart in the list</label><label style="display:block"><input type="checkbox">A session with a recap shows it in full; one without shows no recap line</label><label style="display:block"><input type="checkbox">Each session shows the last real message the user wrote, in full</label><label style="display:block"><input type="checkbox">A command-only message (/recap, /clear) is never shown as the last message</label><label style="display:block"><input type="checkbox">Long messages wrap to the list width, over as many lines as they need</label><label style="display:block"><input type="checkbox">The selected session shows all lines; the others show at most 3 and end with &quot;…&quot;</label><label style="display:block"><input type="checkbox">Searching a word from a recap or a last message finds the session and highlights it</label><label style="display:block"><input type="checkbox">Scattered letters do not match inside a recap or last message</label><label style="display:block"><input type="checkbox">A match beyond line 3 of an unselected session is still visible</label><label style="display:block"><input type="checkbox">Branch and PR show when known and are hidden otherwise</label><label style="display:block"><input type="checkbox">A session with no recap and no message of its own shows two rows</label><label style="display:block"><input type="checkbox">&quot;(folder gone)&quot;, &quot;New session&quot; and the preview behave as before</label>
+  </div>
+</section>
+
+<section data-spec="out-of-scope">
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Lines added/removed, cost, duration, model - none helps choose; the preview header is a better home.</li>
+    <li>Marking a recap out of date or showing its age - revisit if stale recaps mislead.</li>
+    <li>Claude's last answer in the list - the preview shows it.</li>
+    <li>A key to open one session's text without selecting it.</li>
+    <li>Generating a recap for sessions that have none.</li>
+    <li>Custom session names - none exist in the author's data yet.</li>
+  </ul>
+</section>
+</main>
+</body>
+</html>

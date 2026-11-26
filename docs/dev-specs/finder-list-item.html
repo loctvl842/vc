@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dev spec: finder list item</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --soft:#f1efe9; --ok:#2f7d4f; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; --soft:#11100f; --ok:#6cc08b; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:900px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:36px 0; }
+  h1 { font-size:28px; margin:0 0 6px; } h2 { font-size:20px; margin:0 0 10px; } h3 { font-size:15px; margin:14px 0 4px; }
+  .sub { color:var(--muted); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:12px 0; }
+  .rec { border-left:3px solid var(--accent); }
+  code { background:var(--soft); padding:1px 5px; border-radius:4px; font-size:.9em; }
+  table { border-collapse:collapse; width:100%; font-size:14px; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+  .tag { font-size:11px; text-transform:uppercase; letter-spacing:.06em; padding:1px 6px; border-radius:4px; background:var(--soft); color:var(--accent); font-weight:600; }
+  .risk-m { color:var(--accent); } .risk-l { color:var(--ok); }
+  ol.steps { padding-left:20px; } ol.steps li { margin:8px 0; }
+  svg { width:100%; height:auto; color:var(--fg); }
+  svg .box { fill:var(--card); stroke:currentColor; stroke-width:1.2; }
+  svg .new { fill:var(--soft); stroke:var(--accent); stroke-width:1.6; }
+  svg text { fill:currentColor; font:12px system-ui, sans-serif; }
+  svg .sm { font-size:10.5px; fill:var(--muted); }
+  svg .arrow { stroke:currentColor; stroke-width:1.2; fill:none; marker-end:url(#a); }
+  details summary { cursor:pointer; font-weight:600; }
+  input[type=checkbox] { margin-right:8px; }
+</style>
+</head>
+<body>
+<main>
+
+<header data-spec="summary">
+  <h1>Finder list item - dev spec</h1>
+  <p class="sub">PM spec: <code>docs/pm-specs/finder-list-item.md</code></p>
+  <p>Scan three more things per session (last real message in full, last branch, PR). Render each session as <b>title / folder row / recap / last message</b>, word-wrapped, folded to 3 lines unless selected. Search the recap and last message as <b>substring-only</b> through the matcher mechanism that already exists. Four phases, each mergeable alone.</p>
+</header>
+
+<section data-spec="context">
+  <h2>Context</h2>
+  <div class="card">
+    <p><b>Gap.</b> A row has title, project, cwd, counts and a recap (commit <code>80d10ee</code>), but not the last message, branch or PR. <code>format</code> returns a fixed 2-3 rows and cuts with "…". The list calls <code>format_fn(item, width)</code> with no idea which item is selected, so a selected item cannot grow.</p>
+    <p><b>Why not Claude Code's own <code>last-prompt</code>?</b> It is cut at about 200 characters (longest seen: 201) and once held <code>/compact</code>. It cannot give a "full message".</p>
+  </div>
+
+  <svg viewBox="0 0 860 250" role="img" aria-label="Data flow from transcript to list rows">
+    <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker></defs>
+    <g id="n-transcript"><title>transcript .jsonl</title><rect class="box" x="10" y="95" width="130" height="60" rx="8"/><text x="75" y="120" text-anchor="middle">transcript</text><text class="sm" x="75" y="138" text-anchor="middle">user / system / pr-link</text></g>
+    <g id="n-scan"><title>scan.parse - modified</title><rect class="new" x="190" y="85" width="150" height="80" rx="8"/><text x="265" y="110" text-anchor="middle">scan.parse</text><text class="sm" x="265" y="128" text-anchor="middle">+ last_prompt  + branch</text><text class="sm" x="265" y="144" text-anchor="middle">+ pr  (recap kept)</text></g>
+    <g id="n-cache"><title>cache v3</title><rect class="box" x="385" y="95" width="100" height="60" rx="8"/><text x="435" y="120" text-anchor="middle">cache</text><text class="sm" x="435" y="138" text-anchor="middle">version 3</text></g>
+    <g id="n-items"><title>source.items - modified</title><rect class="new" x="530" y="20" width="150" height="70" rx="8"/><text x="605" y="46" text-anchor="middle">source.items</text><text class="sm" x="605" y="64" text-anchor="middle">text = title+folder | recap+message</text><text class="sm" x="605" y="79" text-anchor="middle">fuzzy_len splits the two</text></g>
+    <g id="n-match"><title>matcher - unchanged</title><rect class="box" x="720" y="20" width="130" height="70" rx="8"/><text x="785" y="46" text-anchor="middle">matcher</text><text class="sm" x="785" y="64" text-anchor="middle">unchanged: fuzzy head,</text><text class="sm" x="785" y="79" text-anchor="middle">substring tail</text></g>
+    <g id="n-wrap"><title>wrap.lua - new</title><rect class="new" x="530" y="160" width="150" height="70" rx="8"/><text x="605" y="186" text-anchor="middle">wrap.lines (new)</text><text class="sm" x="605" y="204" text-anchor="middle">text,width -> byte spans</text><text class="sm" x="605" y="219" text-anchor="middle">positions map to rows</text></g>
+    <g id="n-format"><title>source.format - rewritten</title><rect class="new" x="720" y="160" width="130" height="70" rx="8"/><text x="785" y="186" text-anchor="middle">source.format</text><text class="sm" x="785" y="204" text-anchor="middle">(item,width,{selected,</text><text class="sm" x="785" y="219" text-anchor="middle">max_rows}) -> rows</text></g>
+    <path class="arrow" d="M140 125H188"/><path class="arrow" d="M340 125H383"/><path class="arrow" d="M485 115L528 70"/>
+    <path class="arrow" d="M680 55H718"/><path class="arrow" d="M485 135L528 185"/><path class="arrow" d="M680 195H718"/>
+    <path class="arrow" d="M785 90V158"/>
+    <text class="sm" x="808" y="128">positions</text>
+  </svg>
+  <p class="sub">Orange boxes change. The matcher does not: recap and last message share the existing substring-only region.</p>
+</section>
+
+<section data-spec="research">
+  <h2>Research</h2>
+  <div class="card">
+    <h3>Repo</h3>
+    <p>Nothing reads <code>last-prompt</code>, <code>pr-link</code>, <code>gitBranch</code> or <code>isCompactSummary</code>. <b>Reuse:</b> <code>source.fit</code>, <code>source.location</code>, <code>fuzzy_len</code>, the <code>ranges</code> mechanism. List callers of <code>format_fn</code>: <code>height_of</code>, <code>render_visible</code> only.</p>
+    <h3>Built-ins and real data</h3>
+    <ul>
+      <li><code>last-prompt.lastPrompt</code>: 95 sessions, cut at ~200 chars, not always a real message. <b>Rejected</b> as the source.</li>
+      <li><code>pr-link</code>: <code>{prNumber, prUrl, prRepository}</code>, 9 sessions. <code>gitBranch</code>: <code>main</code> (68), <code>HEAD</code> (22), 14 sessions changed branch mid-session.</li>
+      <li>Not messages: <code>isCompactSummary</code>, <code>[Request interrupted by user]</code>, tool results.</li>
+      <li>A skill call with arguments is stored as <code>&lt;command-args&gt;</code>; today it yields nothing.</li>
+      <li>No string word-wrap API in Neovim; window <code>wrap</code> would not give exact line counts for the fold and match rules. <b>Rejected.</b></li>
+    </ul>
+    <p><b>Decision:</b> <span class="tag">Reuse</span> fit/location/fuzzy_len/ranges &nbsp; <span class="tag">Build</span> <code>wrap.lua</code> and the scanner fields.</p>
+  </div>
+</section>
+
+<section data-spec="decisions">
+  <h2>Decisions and PM spec gaps</h2>
+  <p class="sub">Things the PM spec left open. Each is a default I chose; push back on any.</p>
+  <div class="card rec" data-spec="decision-1"><b>1. "Full" stops at 2000 characters.</b> Every stored character is cached for every session; a pasted stack trace is not useful in a list. Longer text ends with "…". Median last message today: 69 characters.</div>
+  <div class="card rec" data-spec="decision-2"><b>2. A command with arguments is a message.</b> <code>/pm-spec Now I want...</code> counts and shows the arguments. Bare <code>/recap</code>, <code>/clear</code>, <code>/compact</code> do not. Otherwise skill-driven sessions show an older message.</div>
+  <div class="card rec" data-spec="decision-3"><b>3. Not user messages:</b> compaction summaries, interruptions, tool results, meta records.</div>
+  <div class="card rec" data-spec="decision-4"><b>4. "Same as the title" is checked after the 120-char title cut</b>, so a one-message untitled session does not show its prompt twice.</div>
+  <div class="card rec" data-spec="decision-5"><b>5. The blank separator row belongs to the item</b> and sits inside the selected highlight (reads as padding). To verify visually in Phase 4.</div>
+  <div class="card rec" data-spec="decision-6"><b>6. Match extension uses the first match</b> of a message when several words are typed; it extends to that line, not to every match.</div>
+</section>
+
+<section data-spec="architecture-changes">
+  <h2>Files</h2>
+  <table>
+    <tr><th>Path</th><th></th><th>What</th></tr>
+    <tr><td><code>lua/vc/sessions/scan.lua</code></td><td>mod</td><td>last message, branch, PR; recap cap; command args count</td></tr>
+    <tr><td><code>lua/vc/sessions/cache.lua</code></td><td>mod</td><td>VERSION 2 &rarr; 3</td></tr>
+    <tr><td><code>lua/vc/finder/wrap.lua</code></td><td>new</td><td>word-wrap to byte spans</td></tr>
+    <tr><td><code>lua/vc/finder/source.lua</code></td><td>mod</td><td><code>format(item,width,opts)</code> rewrite; search text; position mapping</td></tr>
+    <tr><td><code>lua/vc/finder/ui/list.lua</code></td><td>mod</td><td>pass <code>{selected, max_rows}</code>; cursor-aware heights</td></tr>
+    <tr><td><code>lua/vc/finder/highlights.lua</code></td><td>mod</td><td><code>ListLabel</code>, <code>ListPrompt</code></td></tr>
+    <tr><td><code>lua/vc/finder/matcher.lua</code>, <code>query.lua</code></td><td>same</td><td>none (<code>fuzzy_len</code> covers both fields)</td></tr>
+    <tr><td><code>test/finder/wrap_spec.lua</code></td><td>new</td><td>wrap cases</td></tr>
+    <tr><td><code>test/sessions/*</code>, <code>test/finder/*</code></td><td>mod</td><td>fixtures and specs per phase</td></tr>
+    <tr><td><code>docs/CODEMAP/*</code></td><td>regen</td><td><code>update-codemap</code> at the end</td></tr>
+  </table>
+</section>
+
+<section data-spec="phases">
+  <h2>Phases</h2>
+
+  <div class="card" data-spec="phase-1">
+    <h3>Phase 1 - Scanner data <span class="sub">(no UI change)</span></h3>
+    <p>Rows carry what the list needs. Smallest slice: <code>scan.lua</code>, <code>cache.lua</code>, tests.</p>
+    <ol class="steps">
+      <li data-spec="phase-1-step-1"><b>Message helper</b> - <code>user_text</code> returns command-args text for commands with args; cut at 2000 with "…". <span class="risk-m">Risk M</span>: title fallback changes for sessions that began with a skill call.</li>
+      <li data-spec="phase-1-step-2"><b>Last real message</b> - skip <code>isCompactSummary</code>; keep the last 5 non-tool-result user lines (plain find, no decode); decode newest first, skip interruptions; drop if equal to the title's source. <span class="risk-m">Risk M</span>: scanner speed, benched in Phase 4.</li>
+      <li data-spec="phase-1-step-3"><b>Branch and PR</b> - last counted line's <code>gitBranch</code> (nil for empty or <code>HEAD</code>); latest <code>pr-link</code> number.</li>
+      <li data-spec="phase-1-step-4"><b>Row fields</b> - <code>last_prompt</code>, <code>branch</code>, <code>pr</code>; recap cap = 2000.</li>
+      <li data-spec="phase-1-step-5"><b>Cache v3</b> - one rescan on first launch.</li>
+      <li data-spec="phase-1-step-6"><b>Tests</b> - fixtures and specs for each rule above.</li>
+    </ol>
+  </div>
+
+  <div class="card" data-spec="phase-2">
+    <h3>Phase 2 - Wrapped, folded rows</h3>
+    <p>The PM spec layout on screen; search highlight on prose comes in Phase 3.</p>
+    <ol class="steps">
+      <li data-spec="phase-2-step-1"><b><code>wrap.lines(text, width)</code></b> -> 1-based byte spans; break at spaces; split over-wide words at a character boundary; never split UTF-8; width by display columns. <span class="risk-m">Risk M</span>: wide characters.</li>
+      <li data-spec="phase-2-step-2"><b><code>format</code> rewrite</b> - title, folder row (full path left-cut, chips, stats right), recap rows (<code>Recap › </code>), message rows (<code>You   › </code>), blank row; fold to 3 lines unless selected; <code>max_rows</code> cuts with "…"; text width = <code>width - 12</code>.</li>
+      <li data-spec="phase-2-step-3"><b>List</b> - pass <code>{selected = idx == cursor, max_rows = win height}</code> to every <code>format_fn</code> call so scrolling sees the open item's real height. <span class="risk-m">Risk M</span>: offset/cursor logic.</li>
+      <li data-spec="phase-2-step-4"><b>Highlights</b> - <code>ListLabel</code> (dim), <code>ListPrompt</code> (normal), recap dim.</li>
+      <li data-spec="phase-2-step-5"><b>Tests</b> - wrap spec; fold/open; re-fold on move; taller than window; two-row item; chips; narrow folder.</li>
+    </ol>
+  </div>
+
+  <div class="card" data-spec="phase-3">
+    <h3>Phase 3 - Search and highlight</h3>
+    <p>Recap and last message searchable (substring only), matches visible and highlighted.</p>
+    <ol class="steps">
+      <li data-spec="phase-3-step-1"><b>Search text</b> - <code>title  location  recap  message</code>; <code>fuzzy_len = #title + 2 + #location</code>; remember each field's start.</li>
+      <li data-spec="phase-3-step-2"><b>Positions to rows</b> - find field, then wrap span, emit one range per row (bytes incl. label), merge consecutive bytes. <span class="risk-m">Risk M</span>: byte math, tests assert the highlighted substring.</li>
+      <li data-spec="phase-3-step-3"><b>Never hide a match</b> - unselected message extends to the line of its first match, capped by <code>max_rows</code>.</li>
+      <li data-spec="phase-3-step-4"><b>Tests</b> - message-only word, recap-only word, scattered letters, match in line 5, two words, <code>'exact</code>.</li>
+    </ol>
+  </div>
+
+  <div class="card" data-spec="phase-4">
+    <h3>Phase 4 - Verify on real data</h3>
+    <ol class="steps">
+      <li data-spec="phase-4-step-1"><b>Bench</b> <code>scripts/bench-index.lua</code> before/after Phase 1; same range as before. <span class="risk-m">Risk M</span></li>
+      <li data-spec="phase-4-step-2"><b>Manual</b> PM scenarios 1-8 on your sessions; light/dark; narrow window; the selected highlight over the blank row.</li>
+      <li data-spec="phase-4-step-3"><b>Codemap</b> via <code>update-codemap</code>.</li>
+    </ol>
+  </div>
+</section>
+
+<section data-spec="testing-strategy">
+  <h2>Testing</h2>
+  <div class="card">
+    <ul>
+      <li><b>Headless:</b> <code>make test</code> (baseline 64 passing), per spec with <code>SPEC=</code>; <code>make lint</code>.</li>
+      <li><b>Bench:</b> <code>nvim --headless -u NONE -l scripts/bench-index.lua</code> before and after Phase 1.</li>
+      <li><b>Manual:</b> PM spec scenarios 1-8 compared to STATE 1-6.</li>
+    </ul>
+  </div>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <div class="card">
+    <label style="display:block"><input type="checkbox">Full folder with ~; same-named folders distinguishable</label>
+    <label style="display:block"><input type="checkbox">Recap in full when present; no recap line otherwise</label>
+    <label style="display:block"><input type="checkbox">Last real message in full (up to 2000 characters); bare commands never; commands with arguments yes</label>
+    <label style="display:block"><input type="checkbox">Wrapped to list width; selected shows all lines, others 3 with "…"</label>
+    <label style="display:block"><input type="checkbox">Recap and message searchable and highlighted; scattered letters do not match</label>
+    <label style="display:block"><input type="checkbox">A match beyond line 3 of an unselected session stays visible</label>
+    <label style="display:block"><input type="checkbox">Branch and PR chips when known; two-row item when nothing else to show</label>
+    <label style="display:block"><input type="checkbox">"(folder gone)", "New session" and the preview unchanged</label>
+    <label style="display:block"><input type="checkbox">make test and make lint pass; scan time not noticeably slower</label>
+  </div>
+</section>
+
+</main>
+</body>
+</html>
