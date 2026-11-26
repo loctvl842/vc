@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec: notify-toast</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a;
+          --err:#c0392b; --warn:#b7791f; --info:#2b6cb0; --mock:#f1eee7; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c;
+            --err:#f08070; --warn:#e5b567; --info:#7fb2ee; --mock:#12110f; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:32px 0; }
+  h1 { margin:0 0 8px; } h2 { margin:0 0 12px; border-bottom:1px solid var(--line); padding-bottom:6px; }
+  h3 { margin:16px 0 6px; font-size:1rem; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:10px 0; }
+  .muted { color:var(--muted); }
+  pre.mock { background:var(--mock); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto;
+             font:13px/1.35 ui-monospace, Menlo, monospace; margin:6px 0 14px; }
+  .lbl { font-size:.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--accent); font-weight:600; }
+  .e { color:var(--err); } .w { color:var(--warn); } .i { color:var(--info); } .d { color:var(--muted); }
+  li { margin:3px 0; }
+  .steps { counter-reset:s; list-style:none; padding:0; }
+  .steps li { counter-increment:s; background:var(--card); border:1px solid var(--line); border-radius:8px; padding:8px 12px; margin:8px 0; }
+  .steps li::before { content:"Step " counter(s); display:block; font-size:.75rem; color:var(--accent); font-weight:600; }
+  .ok { list-style:none; padding-left:0; } .ok li::before { content:"\2610  "; color:var(--accent); }
+</style>
+</head>
+<body>
+<main>
+<header data-spec="summary">
+  <h1>notify-toast</h1>
+  <p>Plain information messages show as a quiet one-line toast at the bottom right (BeastVim's toast style); repeats merge into a count. Warnings and errors keep the cards at the top right.</p>
+</header>
+
+<section data-spec="problem">
+  <h2>Problem</h2>
+  <p>Every message is a boxed card in the top right. For an error that is right; for "Hit BOTTOM, continuing at TOP" it is noise covering the finder, and five repeats stack five identical big cards. Information and problems look equally heavy.</p>
+  <p class="muted" data-spec="why-now">Why now: messages are the only feedback and appear often; a light style for routine ones lets errors and warnings stand out.</p>
+</section>
+
+<section data-spec="target-behavior">
+  <h2>Target behavior</h2>
+
+  <div data-spec="state-1">
+    <div class="lbl">State 1 - one information message in the finder</div>
+<pre class="mock">┌ Claude Sessions ──────────────────────────┬────────────── Fix flaky login test ─┐
+│ &gt; fix                                     │ ~/work/api-server - 34 messages     │
+│                                           │                                     │
+│ ▌ Fix flaky login test                    │ &gt; The login test fails on CI only.  │
+│   ~/work/api-server - main                │                                     │
+│                                           │ ● It looks like a timing issue.     │
+│   Add retry to the sync job               │                                     │
+│   ~/work/sync - feat/retry                │                                     │
+└&lt;continue  &lt;C-n&gt;/&lt;C-p&gt; move  &lt;C-l&gt; preview ┴ <span class="d">Hit BOTTOM, continuing at TOP</span>  <span class="i">󰋽</span> ─┘</pre>
+    <p class="muted">No box: dim text with a level-colored icon at the right end.</p>
+  </div>
+
+  <div data-spec="state-2">
+    <div class="lbl">State 2 - an error and an information message together</div>
+<pre class="mock">                                          ┌────────────────────────────────┐
+                                          │  <span class="e">ERROR</span>                         │   &lt;- top right, card
+                                          │ E21: Cannot make changes,      │
+                                          │ 'modifiable' is off            │
+                                          └────────────────────────────────┘
+        ...
+└&lt;continue  &lt;C-n&gt;/&lt;C-p&gt; move  &lt;C-l&gt; preview ┴ <span class="d">Hit BOTTOM, continuing at TOP</span>  <span class="i">󰋽</span> ─┘   &lt;- bottom right, toast</pre>
+  </div>
+
+  <div data-spec="state-3">
+    <div class="lbl">State 3 - the same message three times</div>
+<pre class="mock"><span class="d">Hit BOTTOM, continuing at TOP</span> <b>x3</b>  <span class="i">󰋽</span>
+(one line, not three; the count is highlighted)</pre>
+  </div>
+
+  <div data-spec="state-4">
+    <div class="lbl">State 4 - several different messages (newest at the bottom)</div>
+<pre class="mock"><span class="d">yanked 3 lines</span>  <span class="i">󰋽</span>
+<span class="d">written</span>  <span class="i">󰋽</span>
+<span class="d">Hit BOTTOM, continuing at TOP</span>  <span class="i">󰋽</span></pre>
+  </div>
+
+  <div data-spec="state-5">
+    <div class="lbl">State 5 - long or multi-line message</div>
+<pre class="mock">"first line / second line / third line"  shows as:
+<span class="d">first line second line third line</span>  <span class="i">󰋽</span>
+Wider than 60% of the terminal, cut with an ellipsis:
+<span class="d">This is a very long message that does not fit in the …</span>  <span class="i">󰋽</span></pre>
+  </div>
+
+  <div class="card" data-spec="toast-details">
+    <strong>Toast details</strong>
+    <ul>
+      <li>One line, no border or box; the terminal background shows through.</li>
+      <li>Dim text; the icon at the right end carries the level color.</li>
+      <li>Width follows the text, between 10 columns and 60% of the terminal.</li>
+      <li>Fades in and out in place (no slide). Stacks upward from the bottom right, newest at the bottom.</li>
+    </ul>
+  </div>
+</section>
+
+<section data-spec="scenarios">
+  <h2>Scenarios</h2>
+
+  <div data-spec="scenario-1"><h3>1 - A routine message</h3>
+    <ol class="steps">
+      <li>The user searches past the end of the file in the preview. A toast fades in bottom right: "Hit BOTTOM, continuing at TOP". Nothing top right.</li>
+      <li>The user keeps typing; the toast never takes focus.</li>
+      <li>About 2 seconds later it fades out.</li>
+    </ol></div>
+
+  <div data-spec="scenario-2"><h3>2 - An error and a toast at once</h3>
+    <ol class="steps">
+      <li>The user presses <code>x</code> in the preview (error) right after a search wrap (info). E21 shows as a card top right; the search wrap as a toast bottom right. Each expires on its own timing.</li>
+    </ol></div>
+
+  <div data-spec="scenario-3"><h3>3 - The same message repeats</h3>
+    <ol class="steps">
+      <li>A message appears once: "written".</li>
+      <li>Same message again while visible: the line becomes "written x2", no second line, timer restarts.</li>
+      <li>The count keeps going: x3 ... x99, then "x99+".</li>
+    </ol></div>
+
+  <div data-spec="scenario-4"><h3>4 - Different messages</h3>
+    <ol class="steps">
+      <li>Three different messages within a second: three lines appear one after another, staggered, newest at the bottom.</li>
+      <li>They fade out oldest first; the rest drop down to close the gap.</li>
+    </ol></div>
+
+  <div data-spec="scenario-5"><h3>5 - Long and multi-line message</h3>
+    <ol class="steps">
+      <li>A multi-line message shows on one line, breaks turned into spaces.</li>
+      <li>Wider than 60% of the terminal: cut with an ellipsis; the icon stays visible.</li>
+    </ol></div>
+
+  <div data-spec="scenario-6"><h3>6 - Small terminal</h3>
+    <ol class="steps">
+      <li>40 columns wide, an information message arrives: the toast is at most 24 columns (60%), text cut with an ellipsis.</li>
+    </ol></div>
+
+  <div data-spec="scenario-7"><h3>7 - Warning stays a card</h3>
+    <ol class="steps">
+      <li>A warning arrives (e.g. "claude was not found on PATH"): it shows as a WARN card top right, never as a toast.</li>
+    </ol></div>
+</section>
+
+<section data-spec="behavior-rules">
+  <h2>Behavior rules</h2>
+  <ul>
+    <li>Information goes to a toast; warnings and errors go to cards. Debug and trace are still not shown.</li>
+    <li>Covers messages Neovim prints and any other information-level notice in the editor.</li>
+    <li>Identical information toasts still on screen merge into one line with a count (<code>x2</code> to <code>x99</code>, then <code>x99+</code>); each merge restarts the timer.</li>
+    <li>Messages that differ in text never merge.</li>
+    <li>Toasts stay about 2 seconds; cards about 3 seconds, as before.</li>
+    <li>Always one line: line breaks become spaces, long text ends with an ellipsis, the count is never the part that gets cut.</li>
+    <li>Toasts never take focus or steal keys.</li>
+    <li>Toasts sit in the very last screen row, right aligned with a one column margin, above everything else.</li>
+    <li>Colors follow the terminal palette and update on light/dark switch. No fixed colors.</li>
+    <li>No flicker or redraw of the finder.</li>
+    <li>Many toasts in quick succession are staggered a little.</li>
+    <li>Background messages show safely and never cause an error themselves.</li>
+    <li>If the toast stack would grow past the top of the screen, the oldest are removed early.</li>
+  </ul>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul class="ok">
+    <li>An information message is one dim line at the bottom right, no box.</li>
+    <li>A warning or error is a card at the top right, as before.</li>
+    <li>Five identical information messages in a row show one line with "x5".</li>
+    <li>Multi-line messages show on one line; long ones end with an ellipsis.</li>
+    <li>Colored icon at the right end; follows the terminal palette in light and dark.</li>
+    <li>Toasts fade in and out and the stack closes gaps.</li>
+    <li>Typing continues uninterrupted while toasts are visible.</li>
+    <li>A 40-column terminal shows a readable, shortened toast.</li>
+    <li>A background message shows as a toast with no error.</li>
+    <li>"Press ENTER or type command to continue" still never appears.</li>
+  </ul>
+</section>
+
+<section data-spec="out-of-scope">
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Progress bars and spinners (BeastVim's toast has them; VimClaude reports no progress).</li>
+    <li>Warnings or errors as toasts, or information as cards: the split is fixed.</li>
+    <li>A message history window.</li>
+    <li>A key to dismiss toasts at once.</li>
+    <li>Per-message style choices.</li>
+  </ul>
+</section>
+</main>
+</body>
+</html>
